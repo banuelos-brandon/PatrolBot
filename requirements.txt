@@ -1,0 +1,4 @@
+# All the required dependecies for the PatrolBot subsystems
+
+# gui
+PyQt5 ~= 5.15.6
