@@ -1,0 +1,3 @@
+Download yolov3-tiny.cfg at https://raw.githubusercontent.com/pjreddie/darknet/master/cfg/yolov3-tiny.cfg
+Download yolov3-tiny.weights at https://pjreddie.com/media/files/yolov3-tiny.weights
+Download coco.names at https://raw.githubusercontent.com/pjreddie/darknet/master/data/coco.names
