@@ -254,16 +254,19 @@ class CameraFeed(QThread):
         #Torch code adapted from https://github.com/akash-agni/Real-Time-Object-Detection/blob/main/Object_Detection_Youtube.py
 
         #get class names for coco example. Replace with your own exact path
-        labels = open("/Users/brandonbanuelos/Desktop/darknet-test-master/coco.names").read().strip().split("\n")
+        labels = open("/Users/brandonbanuelos/Documents/CS 425/Patrol Bot/Yolo/coco.names").read().strip().split("\n")
+        #implement a list of random colors for each class
+        COLORS = np.random.uniform(0, 255, size=(len(labels), 3))
         #get pretrained weights for YoloV3 and OpenCV. Replace with your own exact path
-        weights = '/Users/brandonbanuelos/Desktop/darknet-test-master/yolov3-tiny.weights'
+        weights = '/Users/brandonbanuelos/Documents/CS 425/Patrol Bot/yolov3.weights'
         #get get config file for YoloV3 and OpenCV. Replace with your own exact path
-        config = '/Users/brandonbanuelos/Desktop/darknet-test-master/yolov3-tiny.cfg'
+        config = '/Users/brandonbanuelos/Documents/CS 425/Patrol Bot/yolov3-darknet-master/yolov3.cfg'
         #read in pretrained YoloV3 model with OpenCV
         net = cv2.dnn.readNet(weights, config)
 
         #Torch implementation. Replace third item with your YoloV5 weight's exact path
         #model = torch.hub.load('ultralytics/yolov5', 'custom', '/Users/brandonbanuelos/Desktop/Yolo/yolov5s.pt')
+        #model = torch.hub.load('ultralytics/yolov5', 'yolov5n')
         #extract the names of the classes for trained the YoloV5 model
         #classes = model.names
 
@@ -276,11 +279,12 @@ class CameraFeed(QThread):
                 #flip video frame, so it isn't reversed
                 image = cv2.flip(image, 1)
                 
+                '''
                 ################################################################
                 #TORCH OBJECT DETECTION
                 ################################################################
 
-                '''
+                
                 #get dimensions of the current video frame
                 x_shape = image.shape[1]
                 y_shape = image.shape[0]
@@ -305,10 +309,11 @@ class CameraFeed(QThread):
                         #give bounding box a text label
                         cv2.putText(image, str(classes[int(labels[i])]), (int(x1)-10, int(y1)-10), cv2.FONT_HERSHEY_SIMPLEX, 2, color, 2)
                 '''
+
                 ################################################################
                 #OPEN CV OBJECT DETECTION
                 ################################################################
-
+                
                 #get dimensions of the current video frame
                 Width = image.shape[1]
                 Height = image.shape[0]
@@ -352,6 +357,7 @@ class CameraFeed(QThread):
 
                             #append the information for the best prediction
                             class_ids.append(class_id)
+                            print(class_id)
                             confidences.append(float(confidence))
                             boxes.append([x, y, w, h])
                             box_count += 1
@@ -370,14 +376,15 @@ class CameraFeed(QThread):
                     x2 = x+w
                     y2 = y+h
                     
-                    color = (255,0,0)
+                    color = COLORS[class_ids[i]]
 
                     #draw bounding box
                     cv2.rectangle(image, (int(x),int(y)), (int(x2),int(y2)), color, 2)
-                    label = str(labels[class_id])
+                    class_number = class_ids[i]
+                    label = str(labels[class_number])
                     #give bounding box a text label
                     cv2.putText(image, label, (int(x)-10,int(y)-10), cv2.FONT_HERSHEY_SIMPLEX, 2, color, 2)
-
+                
                 #convert the image to QImage format
                 ConvertToQtFormat = QImage(image.data, image.shape[1], image.shape[0], QImage.Format_RGB888)
                 Pic = ConvertToQtFormat.scaled(640, 480, Qt.KeepAspectRatio)
