@@ -47,8 +47,6 @@ class WelcomeScreen(QDialog):
         #set stack index to 2 which is where the register page is located
         widget.setCurrentIndex(widget.currentIndex() + self.registerIndex)
         
-        
-
 class CreateAccount(QDialog):
     def __init__(self):
         super().__init__()
@@ -422,7 +420,7 @@ if __name__ == '__main__':
     widget.addWidget(create)
     #create dashboard page
     dashboard = ShowDashboard()
-    #add options page to stack at index 4
+    #add dashboard page to stack at index 3
     widget.addWidget(dashboard)
     #create options page
     options = OptionsForm()
