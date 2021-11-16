@@ -1,4 +1,12 @@
 # All the required dependecies for the PatrolBot subsystems
 
+# necessities
+numpy >= 1.17.3
+
 # gui
 PyQt5 ~= 5.15.6
+
+# obj detection
+# https://pypi.org/project/opencv-python/
+# option 1 - main modules package
+opencv-python ~= 4.5.4.58
