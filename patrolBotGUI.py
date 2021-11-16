@@ -1,16 +1,12 @@
 import sys
 import os
 import cv2
-import torch
 import numpy as np
 from datetime import datetime
-
-from threading import Thread
 
 from PyQt5.QtGui import *
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
-
 
 class WelcomeScreen(QDialog):
     #PyQt5 page format code adapted from https://github.com/codefirstio/pyqt5-full-app-tutorial-for-beginners/blob/main/main.py
@@ -220,6 +216,12 @@ class ShowDashboard(QDialog):
         stop_camera.clicked.connect(self.camera.stop)
         layout.addWidget(stop_camera, 1, 2)
 
+        button_options = QPushButton('Options')
+        button_options.setStyleSheet("color: black;")
+        button_options.setStyleSheet('background-color: white;')
+        button_options.clicked.connect(self.options)
+        layout.addWidget(button_options, 1, 3)
+
         #camera feed is output on top of this widget
         self.feed_label = QLabel('Waiting for camera input...')
         self.feed_label.setStyleSheet("color: white;")
@@ -228,6 +230,10 @@ class ShowDashboard(QDialog):
     def logout(self):
         #set stack index to 0 which is where the welcome page is located
         widget.setCurrentIndex(widget.currentIndex() - 3)
+
+    def options(self):
+        #set stack index to 4 which is where the welcome page is located
+        widget.setCurrentIndex(widget.currentIndex() + 1)
 
     def startCamera(self):
         #start the camera thread
@@ -245,30 +251,28 @@ class CameraFeed(QThread):
     #sends an updated QImage as a signal to the variable ImageUpdate
     ImageUpdate = pyqtSignal(QImage)
     
-    
     def run(self):
         self.ThreadActive = True
         Capture = cv2.VideoCapture(0)
 
         #OpenCV code adapted from https://towardsdatascience.com/yolo-object-detection-with-opencv-and-python-21e50ac599e9
-        #Torch code adapted from https://github.com/akash-agni/Real-Time-Object-Detection/blob/main/Object_Detection_Youtube.py
 
-        #get class names for coco example. Replace with your own exact path
-        labels = open("/Users/brandonbanuelos/Documents/CS 425/Patrol Bot/Yolo/coco.names").read().strip().split("\n")
+        #I'm using the regular sized YoloV3 in this example
+        #You can use whatever size/model as long as you have the .names file
+        #.weights file, and .cfg file for it
+
+        #yolov3 requires a .names file with class names. Replace with your own exact path
+        labelsPath = "/Users/brandonbanuelos/Documents/CS 425/Patrol Bot/Yolo/coco.names"
+        #get class names for coco example 
+        labels = open(labelsPath).read().strip().split("\n")
         #implement a list of random colors for each class
         COLORS = np.random.uniform(0, 255, size=(len(labels), 3))
         #get pretrained weights for YoloV3 and OpenCV. Replace with your own exact path
-        weights = '/Users/brandonbanuelos/Documents/CS 425/Patrol Bot/yolov3.weights'
+        weightsPath = "/Users/brandonbanuelos/Documents/CS 425/Patrol Bot/yolov3.weights"
         #get get config file for YoloV3 and OpenCV. Replace with your own exact path
-        config = '/Users/brandonbanuelos/Documents/CS 425/Patrol Bot/yolov3-darknet-master/yolov3.cfg'
+        configPath = "/Users/brandonbanuelos/Documents/CS 425/Patrol Bot/yolov3-darknet-master/yolov3.cfg"
         #read in pretrained YoloV3 model with OpenCV
-        net = cv2.dnn.readNet(weights, config)
-
-        #Torch implementation. Replace third item with your YoloV5 weight's exact path
-        #model = torch.hub.load('ultralytics/yolov5', 'custom', '/Users/brandonbanuelos/Desktop/Yolo/yolov5s.pt')
-        #model = torch.hub.load('ultralytics/yolov5', 'yolov5n')
-        #extract the names of the classes for trained the YoloV5 model
-        #classes = model.names
+        net = cv2.dnn.readNet(weightsPath, configPath)
 
         while self.ThreadActive:
             ret, frame = Capture.read()
@@ -278,37 +282,6 @@ class CameraFeed(QThread):
                 
                 #flip video frame, so it isn't reversed
                 image = cv2.flip(image, 1)
-                
-                '''
-                ################################################################
-                #TORCH OBJECT DETECTION
-                ################################################################
-
-                
-                #get dimensions of the current video frame
-                x_shape = image.shape[1]
-                y_shape = image.shape[0]
-
-                #apply the Torch YoloV5 model to this frame
-                results = model(image)
-                #extract the labels and coordinates of the bounding boxes
-                labels, cords = results.xyxyn[0][:, -1].numpy(), results.xyxyn[0][:, :-1].numpy()
-
-
-                numberOfLabels = len(labels)
-                
-                for i in range(numberOfLabels):
-                    row = cords[i]
-                    color = (255,0, 0)
-                    
-                    #if confidence level is greater than 0.2
-                    if row[4] >= 0.2:
-                        x1, y1, x2, y2 = int(row[0]*x_shape), int(row[1]*y_shape), int(row[2]*x_shape), int(row[3]*y_shape)
-                        #draw bounding box
-                        cv2.rectangle(image, (int(x1),int(y1)), (int(x2),int(y2)), color, 2)
-                        #give bounding box a text label
-                        cv2.putText(image, str(classes[int(labels[i])]), (int(x1)-10, int(y1)-10), cv2.FONT_HERSHEY_SIMPLEX, 2, color, 2)
-                '''
 
                 ################################################################
                 #OPEN CV OBJECT DETECTION
@@ -357,7 +330,6 @@ class CameraFeed(QThread):
 
                             #append the information for the best prediction
                             class_ids.append(class_id)
-                            print(class_id)
                             confidences.append(float(confidence))
                             boxes.append([x, y, w, h])
                             box_count += 1
@@ -410,6 +382,28 @@ class CameraFeed(QThread):
 
         cv2.putText(img, label, (x-10,y-10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
 
+class OptionsForm(QDialog):
+    def __init__(self):
+        super().__init__()
+    
+        self.setStyleSheet('background-color: blue;')
+        layout = QGridLayout()
+        self.setLayout(layout)
+
+        label_logo = QLabel('<font size="10"> PatrolBot Options </font>')
+        label_logo.setStyleSheet("color: white;")
+        layout.addWidget(label_logo, 0, 0)
+
+        button_back = QPushButton('Back')
+        button_back.setStyleSheet("color: black;")
+        button_back.setStyleSheet('background-color: white;')
+        button_back.clicked.connect(self.back)
+        layout.addWidget(button_back, 1, 0)
+
+    def back(self):
+        #set stack index to 3 which is where the dashboard page is located
+        widget.setCurrentIndex(widget.currentIndex() - 1)
+
 if __name__ == '__main__':
     app = QApplication(sys.argv)
     #create welcome screen page
@@ -428,8 +422,12 @@ if __name__ == '__main__':
     widget.addWidget(create)
     #create dashboard page
     dashboard = ShowDashboard()
-    #add dashboard page to stack at index 3
+    #add options page to stack at index 4
     widget.addWidget(dashboard)
+    #create options page
+    options = OptionsForm()
+    #add options page to stack at index 4
+    widget.addWidget(options)
     widget.setFixedHeight(800)
     widget.setFixedWidth(1200)
     #display widget at bottom of stack (welcome page)
