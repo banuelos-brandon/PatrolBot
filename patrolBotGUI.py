@@ -45,8 +45,8 @@ class WelcomeScreen(QDialog):
 
     def goToCreate(self):
         #set stack index to 2 which is where the register page is located
-        widget.setCurrentIndex(widget.currentIndex() + self.registerIndex)
-        
+        widget.setCurrentIndex(widget.currentIndex() + self.registerIndex)    
+
 class CreateAccount(QDialog):
     def __init__(self):
         super().__init__()
@@ -191,15 +191,15 @@ class ShowDashboard(QDialog):
         button_login.clicked.connect(self.logout)
         layout.addWidget(button_login, 1, 0)
 
-        log_form = QPlainTextEdit('Action Logger')
-        log_form.setStyleSheet("color: white;")
-        log_form.setStyleSheet('background-color: white;')
-        log_form.setReadOnly(True)
+        self.log_form = QPlainTextEdit('Action Logger')
+        self.log_form.setStyleSheet("color: white;")
+        self.log_form.setStyleSheet('background-color: white;')
+        self.log_form.setReadOnly(True)
         now = datetime.now()
         current_time = now.strftime("%H:%M:%S")
         msg = current_time + ': Welcome to Patrol Bot logs'
-        log_form.appendPlainText(msg)
-        layout.addWidget(log_form, 2, 1, 1, 2)
+        self.log_form.appendPlainText(msg)
+        layout.addWidget(self.log_form, 2, 1, 1, 2)
         
 
         start_camera = QPushButton('Start Camera')
@@ -238,16 +238,35 @@ class ShowDashboard(QDialog):
         self.camera.start()
         #call to update the camera feed to main thread
         self.camera.ImageUpdate.connect(self.ImageUpdateSlot)
+        #call to update the log form 
+        self.camera.LogUpdate.connect(self.LogUpdateSlot)
 
     def ImageUpdateSlot(self, Image):
         #turn the image into a QPixmap
         #this form is readable to PyQt5 as an Image
         #puts the update image onto the screen
         self.feed_label.setPixmap(QPixmap.fromImage(Image))
+        
+    
+    def LogUpdateSlot(self, label):
+        #get current time
+        now = datetime.now()
+        current_time = now.strftime("%H:%M:%S")
+        #Get timezone naive now
+        dt = datetime.today()
+        #get current seconds
+        seconds = (dt.timestamp() % 10)
+        #every 10.0 seconds append to log from
+        if (int(seconds) == 0 and (int((seconds*10) % 10)) == 0):
+            msg = "\n" + current_time + ": " + label + " detected"
+            #append to the log form
+            self.log_form.appendPlainText(msg)
 
 class CameraFeed(QThread):
     #sends an updated QImage as a signal to the variable ImageUpdate
     ImageUpdate = pyqtSignal(QImage)
+
+    LogUpdate = pyqtSignal(str)
     
     def run(self):
         self.ThreadActive = True
@@ -354,6 +373,8 @@ class CameraFeed(QThread):
                     label = str(labels[class_number])
                     #give bounding box a text label
                     cv2.putText(image, label, (int(x)-10,int(y)-10), cv2.FONT_HERSHEY_SIMPLEX, 2, color, 2)
+                    #send signal to dashboard class with name of label
+                    self.LogUpdate.emit(label)
                 
                 #convert the image to QImage format
                 ConvertToQtFormat = QImage(image.data, image.shape[1], image.shape[0], QImage.Format_RGB888)
