@@ -1,6 +1,7 @@
 import sys
 import os
 import cv2
+import torch
 import numpy as np
 from datetime import datetime
 
@@ -256,8 +257,8 @@ class ShowDashboard(QDialog):
         dt = datetime.today()
         #get current seconds
         seconds = (dt.timestamp() % 10)
-        #every 10.0 seconds append to log from
-        if (int(seconds) == 0 and (int((seconds*10) % 10)) == 0):
+        #every 10 seconds append to log from
+        if (int(seconds) == 0):
             msg = "\n" + current_time + ": " + label + " detected"
             #append to the log form
             self.log_form.appendPlainText(msg)
@@ -272,6 +273,7 @@ class CameraFeed(QThread):
         self.ThreadActive = True
         Capture = cv2.VideoCapture(0)
 
+        #Not in USE
         #OpenCV code adapted from https://towardsdatascience.com/yolo-object-detection-with-opencv-and-python-21e50ac599e9
 
         #I'm using the regular sized YoloV3 in this example
@@ -279,17 +281,27 @@ class CameraFeed(QThread):
         #.weights file, and .cfg file for it
 
         #yolov3 requires a .names file with class names. Replace with your own exact path
-        labelsPath = "/Users/brandonbanuelos/Documents/CS 425/Patrol Bot/Yolo/coco.names"
+        #labelsPath = "/Users/brandonbanuelos/Documents/CS 425/Patrol Bot/Yolo/coco.names"
         #get class names for coco example 
-        labels = open(labelsPath).read().strip().split("\n")
+        #labels = open(labelsPath).read().strip().split("\n")
         #implement a list of random colors for each class
-        COLORS = np.random.uniform(0, 255, size=(len(labels), 3))
+        #COLORS = np.random.uniform(0, 255, size=(len(labels), 3))
         #get pretrained weights for YoloV3 and OpenCV. Replace with your own exact path
-        weightsPath = "/Users/brandonbanuelos/Documents/CS 425/Patrol Bot/yolov3.weights"
+        #weightsPath = "/Users/brandonbanuelos/Documents/CS 425/Patrol Bot/yolov3.weights"
         #get get config file for YoloV3 and OpenCV. Replace with your own exact path
-        configPath = "/Users/brandonbanuelos/Documents/CS 425/Patrol Bot/yolov3-darknet-master/yolov3.cfg"
+        #configPath = "/Users/brandonbanuelos/Documents/CS 425/Patrol Bot/yolov3-darknet-master/yolov3.cfg"
         #read in pretrained YoloV3 model with OpenCV
-        net = cv2.dnn.readNet(weightsPath, configPath)
+        #net = cv2.dnn.readNet(weightsPath, configPath)
+
+        #Torch code adapted from https://github.com/akash-agni/Real-Time-Object-Detection/blob/main/Object_Detection_Youtube.py
+        #Torch implementation. Replace third item with your YoloV5 weight's exact path
+        model = torch.hub.load('ultralytics/yolov5', 'custom', '/Users/brandonbanuelos/Documents/CS 425/Patrol Bot/Yolo/best.pt')
+        #model = torch.hub.load('ultralytics/yolov5', 'yolov5n')
+        #extract the names of the classes for trained the YoloV5 model
+        
+        classes = model.names
+        class_ids = [0,1,2,3]
+        COLORS = np.random.uniform(0, 255, size=(len(classes), 3))
 
         while self.ThreadActive:
             ret, frame = Capture.read()
@@ -300,6 +312,43 @@ class CameraFeed(QThread):
                 #flip video frame, so it isn't reversed
                 image = cv2.flip(image, 1)
 
+                
+                ################################################################
+                #TORCH OBJECT DETECTION
+                ################################################################
+
+                
+                #get dimensions of the current video frame
+                x_shape = image.shape[1]
+                y_shape = image.shape[0]
+
+                #apply the Torch YoloV5 model to this frame
+                results = model(image)
+                #extract the labels and coordinates of the bounding boxes
+                labels, cords = results.xyxyn[0][:, -1].numpy(), results.xyxyn[0][:, :-1].numpy()
+
+                numberOfLabels = len(labels)
+                
+                for i in range(numberOfLabels):
+                    row = cords[i]
+                    #get the class number of current label
+                    class_number = int(labels[i])
+                    #index colors list with current label number
+                    color = COLORS[class_ids[class_number]]
+                    
+                    #if confidence level is greater than 0.2
+                    if row[4] >= 0.2:
+                        #get label to send to dashbaord
+                        label = classes[class_number]
+                        x1, y1, x2, y2 = int(row[0]*x_shape), int(row[1]*y_shape), int(row[2]*x_shape), int(row[3]*y_shape)
+                        #draw bounding box
+                        cv2.rectangle(image, (int(x1),int(y1)), (int(x2),int(y2)), color, 2)
+                        #give bounding box a text label
+                        cv2.putText(image, str(classes[int(labels[i])]), (int(x1)-10, int(y1)-10), cv2.FONT_HERSHEY_SIMPLEX, 2, color, 2)
+                        self.LogUpdate.emit(label)
+                
+                
+                '''
                 ################################################################
                 #OPEN CV OBJECT DETECTION
                 ################################################################
@@ -375,7 +424,8 @@ class CameraFeed(QThread):
                     cv2.putText(image, label, (int(x)-10,int(y)-10), cv2.FONT_HERSHEY_SIMPLEX, 2, color, 2)
                     #send signal to dashboard class with name of label
                     self.LogUpdate.emit(label)
-                
+                '''
+
                 #convert the image to QImage format
                 ConvertToQtFormat = QImage(image.data, image.shape[1], image.shape[0], QImage.Format_RGB888)
                 Pic = ConvertToQtFormat.scaled(640, 480, Qt.KeepAspectRatio)
