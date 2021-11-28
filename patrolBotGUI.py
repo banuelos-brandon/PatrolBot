@@ -339,7 +339,8 @@ class CameraFeed(QThread):
 
         #Torch code adapted from https://github.com/akash-agni/Real-Time-Object-Detection/blob/main/Object_Detection_Youtube.py
         #Torch implementation. Replace third item with your YoloV5 weight's exact path
-        model = torch.hub.load('ultralytics/yolov5', 'custom', '/Users/brandonbanuelos/Documents/CS 425/Patrol Bot/Yolo/best.pt')
+        model_weight_path = os.path.join(os.getcwd(), 'model_weights/best.pt')
+        model = torch.hub.load('ultralytics/yolov5', 'custom', model_weight_path)
         #model = torch.hub.load('ultralytics/yolov5', 'yolov5n')
         #extract the names of the classes for trained the YoloV5 model
         
