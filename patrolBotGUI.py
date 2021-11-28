@@ -183,6 +183,13 @@ class ShowDashboard(QDialog):
         #declare CameraFeed thread object within dashboard
         self.camera = CameraFeed()
 
+        # declare canvas map web view thread object within dashboard
+        self.canvas_web_view = CanvasMap(
+            view=QWebEngineView(),
+            web_attributes=[QWebEngineSettings.JavascriptEnabled],
+            file_path="images/unr-canvas.html",
+        )
+
         label_logo = QLabel('<font size="10"> PatrolBot Dashboard </font>')
         label_logo.setStyleSheet("color: white;")
         layout.addWidget(label_logo, 0, 0)
@@ -275,6 +282,30 @@ class ShowDashboard(QDialog):
             msg = "\n" + current_time + ": " + label + " detected"
             #append to the log form
             self.log_form.appendPlainText(msg)
+
+class CanvasMap(QThread):
+    webview_state = pyqtSignal(str)
+
+    def __init__(self, view, web_attributes, file_path):
+        self.view = view
+        self.web_attributes = web_attributes
+        self.file_path = file_path
+
+        self.set_web_settings()
+
+    def set_web_settings(self):
+        for i, attr in enumerate(self.web_attributes):
+            self.view.settings().setAttribute(attr, True)
+
+    def get_map_file(self):
+        return "file://" + os.path.join(os.getcwd(), self.file_path).replace("\\", "/")
+
+    def status(self, state):
+        # enables/disables webview interactivity
+        self.view.setDisabled(not state)
+        if not state:
+            # emit signal to update the webview
+            self.ThreadActive = False
 
 class CameraFeed(QThread):
     #sends an updated QImage as a signal to the variable ImageUpdate
