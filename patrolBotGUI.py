@@ -8,6 +8,7 @@ from datetime import datetime
 from PyQt5.QtGui import *
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
+from PyQt5.QtWebEngineWidgets import QWebEngineSettings, QWebEngineView
 
 class WelcomeScreen(QDialog):
     #PyQt5 page format code adapted from https://github.com/codefirstio/pyqt5-full-app-tutorial-for-beginners/blob/main/main.py
@@ -215,11 +216,23 @@ class ShowDashboard(QDialog):
         stop_camera.clicked.connect(self.camera.stop)
         layout.addWidget(stop_camera, 1, 2)
 
+        start_canvas_webview = QPushButton("Start Canvas Map")
+        start_canvas_webview.setStyleSheet("color: black;")
+        start_canvas_webview.setStyleSheet("background-color: white;")
+        # start_canvas_webview.clicked.connect(self.canvas_web_view.status(False))
+        layout.addWidget(start_canvas_webview, 1, 3)
+
+        stop_canvas_webview = QPushButton("Stop Canvas Map")
+        stop_canvas_webview.setStyleSheet("color: black;")
+        stop_canvas_webview.setStyleSheet("background-color: white;")
+        # stop_canvas_webview.clicked.connect(self.canvas_web_view.status(True))
+        layout.addWidget(stop_canvas_webview, 1, 4)
+
         button_options = QPushButton('Options')
         button_options.setStyleSheet("color: black;")
         button_options.setStyleSheet('background-color: white;')
         button_options.clicked.connect(self.options)
-        layout.addWidget(button_options, 1, 3)
+        layout.addWidget(button_options, 1, 5)
 
         #camera feed is output on top of this widget
         self.feed_label = QLabel('Waiting for camera input...')
