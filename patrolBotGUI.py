@@ -526,6 +526,26 @@ class OptionsForm(QDialog):
         button_back.clicked.connect(self.back)
         layout.addWidget(button_back, 1, 0)
 
+        self.b = QCheckBox("Enable Overlay",self)
+        self.b.setChecked(True)
+        self.b.move(20,400)
+        self.b.resize(320,40)
+
+        StyleSheet = '''
+        QCheckBox {
+        spacing: 5px;
+        font-size:20px;
+        color:white;     
+        }
+
+        QCheckBox::indicator {
+        width:  25px;
+        height: 25px;
+        }
+        '''     
+        
+        self.b.setStyleSheet(StyleSheet)       
+
     def back(self):
         #set stack index to 3 which is where the dashboard page is located
         widget.setCurrentIndex(widget.currentIndex() - 1)
