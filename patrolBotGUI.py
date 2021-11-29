@@ -4,6 +4,7 @@ import cv2
 import torch
 import numpy as np
 from datetime import datetime
+from functools import partial
 
 from PyQt5.QtGui import *
 from PyQt5.QtWidgets import *
@@ -187,7 +188,7 @@ class ShowDashboard(QDialog):
         self.canvas_web_view = CanvasMap(
             view=QWebEngineView(),
             web_attributes=[QWebEngineSettings.JavascriptEnabled],
-            file_path="images/unr-canvas.html",
+            file_path="images/mackay.html",
         )
 
         label_logo = QLabel('<font size="10"> PatrolBot Dashboard </font>')
@@ -223,17 +224,16 @@ class ShowDashboard(QDialog):
         stop_camera.clicked.connect(self.camera.stop)
         layout.addWidget(stop_camera, 1, 2)
 
-        start_canvas_webview = QPushButton("Start Canvas Map")
+        canvas_map_file = self.canvas_web_view.get_map_file()
+        view = self.canvas_web_view.view
+        view.load(QUrl(canvas_map_file))
+        layout.addWidget(self.canvas_web_view.view, 2, 3, 2, 1)
+
+        start_canvas_webview = QPushButton("Canvas Map")
         start_canvas_webview.setStyleSheet("color: black;")
         start_canvas_webview.setStyleSheet("background-color: white;")
-        # start_canvas_webview.clicked.connect(self.canvas_web_view.status(False))
+        start_canvas_webview.clicked.connect(partial(self.button_listener, self.canvas_web_view.status))
         layout.addWidget(start_canvas_webview, 1, 3)
-
-        stop_canvas_webview = QPushButton("Stop Canvas Map")
-        stop_canvas_webview.setStyleSheet("color: black;")
-        stop_canvas_webview.setStyleSheet("background-color: white;")
-        # stop_canvas_webview.clicked.connect(self.canvas_web_view.status(True))
-        layout.addWidget(stop_canvas_webview, 1, 4)
 
         button_options = QPushButton('Options')
         button_options.setStyleSheet("color: black;")
@@ -245,6 +245,9 @@ class ShowDashboard(QDialog):
         self.feed_label = QLabel('Waiting for camera input...')
         self.feed_label.setStyleSheet("color: white;")
         layout.addWidget(self.feed_label, 2,0)
+
+    def button_listener(self, func):
+        func()
 
     def logout(self):
         #set stack index to 0 which is where the welcome page is located
@@ -287,10 +290,15 @@ class CanvasMap(QThread):
     webview_state = pyqtSignal(str)
 
     def __init__(self, view, web_attributes, file_path):
+        super(CanvasMap, self).__init__()
         self.view = view
         self.web_attributes = web_attributes
         self.file_path = file_path
 
+        # set the webview inactive by default
+        self.view.setDisabled(True)
+
+        self.state = self.view.isEnabled()
         self.set_web_settings()
 
     def set_web_settings(self):
@@ -300,12 +308,16 @@ class CanvasMap(QThread):
     def get_map_file(self):
         return "file://" + os.path.join(os.getcwd(), self.file_path).replace("\\", "/")
 
-    def status(self, state):
+    def status(self):
         # enables/disables webview interactivity
-        self.view.setDisabled(not state)
-        if not state:
-            # emit signal to update the webview
-            self.ThreadActive = False
+        if not self.state:
+            self.state = True
+            self.view.setDisabled(False)
+            self.webview_state.emit("Started")
+        else:
+            self.state = False
+            self.view.setDisabled(True)
+            self.webview_state.emit("Stopped")
 
 class CameraFeed(QThread):
     #sends an updated QImage as a signal to the variable ImageUpdate
