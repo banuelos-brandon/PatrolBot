@@ -11,6 +11,9 @@ from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
 from PyQt5.QtWebEngineWidgets import QWebEngineSettings, QWebEngineView
 
+enableFlag = True
+runModel = True
+
 class WelcomeScreen(QDialog):
     #PyQt5 page format code adapted from https://github.com/codefirstio/pyqt5-full-app-tutorial-for-beginners/blob/main/main.py
 
@@ -176,7 +179,7 @@ class ShowDashboard(QDialog):
 
     def __init__(self):
         super().__init__()
-    
+        
         self.setStyleSheet('background-color: blue;')
         layout = QGridLayout()
         self.setLayout(layout)
@@ -348,17 +351,19 @@ class CameraFeed(QThread):
         #configPath = "/Users/brandonbanuelos/Documents/CS 425/Patrol Bot/yolov3-darknet-master/yolov3.cfg"
         #read in pretrained YoloV3 model with OpenCV
         #net = cv2.dnn.readNet(weightsPath, configPath)
-
-        #Torch code adapted from https://github.com/akash-agni/Real-Time-Object-Detection/blob/main/Object_Detection_Youtube.py
-        #Torch implementation. Replace third item with your YoloV5 weight's exact path
-        model_weight_path = os.path.join(os.getcwd(), 'model_weights/best.pt')
-        model = torch.hub.load('ultralytics/yolov5', 'custom', model_weight_path)
-        #model = torch.hub.load('ultralytics/yolov5', 'yolov5n')
-        #extract the names of the classes for trained the YoloV5 model
+        global runModel
         
-        classes = model.names
-        class_ids = [0,1,2,3]
-        COLORS = np.random.uniform(0, 255, size=(len(classes), 3))
+        if(runModel == True):
+            #Torch code adapted from https://github.com/akash-agni/Real-Time-Object-Detection/blob/main/Object_Detection_Youtube.py
+            #Torch implementation. Replace third item with your YoloV5 weight's exact path
+            model_weight_path = os.path.join(os.getcwd(), 'model_weights/best.pt')
+            model = torch.hub.load('ultralytics/yolov5', 'custom', model_weight_path)
+            #model = torch.hub.load('ultralytics/yolov5', 'yolov5n')
+            #extract the names of the classes for trained the YoloV5 model
+            
+            classes = model.names
+            class_ids = [0,1,2,3]
+            COLORS = np.random.uniform(0, 255, size=(len(classes), 3))
 
         while self.ThreadActive:
             ret, frame = Capture.read()
@@ -368,41 +373,43 @@ class CameraFeed(QThread):
                 
                 #flip video frame, so it isn't reversed
                 image = cv2.flip(image, 1)
-
                 
-                ################################################################
-                #TORCH OBJECT DETECTION
-                ################################################################
+                if(runModel == True):
+                    ################################################################
+                    #TORCH OBJECT DETECTION
+                    ################################################################
 
-                
-                #get dimensions of the current video frame
-                x_shape = image.shape[1]
-                y_shape = image.shape[0]
-
-                #apply the Torch YoloV5 model to this frame
-                results = model(image)
-                #extract the labels and coordinates of the bounding boxes
-                labels, cords = results.xyxyn[0][:, -1].numpy(), results.xyxyn[0][:, :-1].numpy()
-
-                numberOfLabels = len(labels)
-                
-                for i in range(numberOfLabels):
-                    row = cords[i]
-                    #get the class number of current label
-                    class_number = int(labels[i])
-                    #index colors list with current label number
-                    color = COLORS[class_ids[class_number]]
                     
-                    #if confidence level is greater than 0.2
-                    if row[4] >= 0.2:
-                        #get label to send to dashbaord
-                        label = classes[class_number]
-                        x1, y1, x2, y2 = int(row[0]*x_shape), int(row[1]*y_shape), int(row[2]*x_shape), int(row[3]*y_shape)
-                        #draw bounding box
-                        cv2.rectangle(image, (int(x1),int(y1)), (int(x2),int(y2)), color, 2)
-                        #give bounding box a text label
-                        cv2.putText(image, str(classes[int(labels[i])]), (int(x1)-10, int(y1)-10), cv2.FONT_HERSHEY_SIMPLEX, 2, color, 2)
-                        self.LogUpdate.emit(label)
+                    #get dimensions of the current video frame
+                    x_shape = image.shape[1]
+                    y_shape = image.shape[0]
+
+                    #apply the Torch YoloV5 model to this frame
+                    results = model(image)
+                    #extract the labels and coordinates of the bounding boxes
+                    labels, cords = results.xyxyn[0][:, -1].numpy(), results.xyxyn[0][:, :-1].numpy()
+
+                    numberOfLabels = len(labels)
+                    
+                    for i in range(numberOfLabels):
+                        row = cords[i]
+                        #get the class number of current label
+                        class_number = int(labels[i])
+                        #index colors list with current label number
+                        color = COLORS[class_ids[class_number]]
+                        
+                        #if confidence level is greater than 0.2
+                        if row[4] >= 0.2:
+                            #get label to send to dashbaord
+                            label = classes[class_number]
+                            x1, y1, x2, y2 = int(row[0]*x_shape), int(row[1]*y_shape), int(row[2]*x_shape), int(row[3]*y_shape)
+                            global enableFlag
+                            if (enableFlag == True):
+                                #draw bounding box
+                                cv2.rectangle(image, (int(x1),int(y1)), (int(x2),int(y2)), color, 2)
+                                #give bounding box a text label
+                                cv2.putText(image, str(classes[int(labels[i])]), (int(x1)-10, int(y1)-10), cv2.FONT_HERSHEY_SIMPLEX, 2, color, 2)
+                            self.LogUpdate.emit(label)
                 
                 
                 '''
@@ -508,10 +515,6 @@ class CameraFeed(QThread):
 
         cv2.putText(img, label, (x-10,y-10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
 
-global enable_labels;
-enable_labels = True;
-global run_model;
-run_model = True;
 class OptionsForm(QDialog):
     def __init__(self):
         super().__init__()
@@ -561,17 +564,17 @@ class OptionsForm(QDialog):
         self.run_model_box.setStyleSheet(StyleSheet)
 
     def statechanged(self, int):
-        if self.enable_box.isChecked():
-            global enable_labels;
-            enable_labels = True
-        else :
-            enable_labels = False;
+        global enableFlag
+        global runModel
         
-        if self.run_model_box.isChecked():
-            global run_model;
-            run_model = True;
+        if self.enable_box.isChecked():
+            enableFlag = True
         else :
-            run_model = False;
+            enableFlag = False
+        if self.run_model_box.isChecked():
+            runModel = True
+        else :
+            runModel = False
 
     def back(self):
         #set stack index to 3 which is where the dashboard page is located
