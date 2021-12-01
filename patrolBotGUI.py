@@ -531,6 +531,18 @@ class CameraFeed(QThread):
 class OptionsForm(QDialog):
     def __init__(self):
         super().__init__()
+        StyleSheet = '''
+        QCheckBox {
+        spacing: 5px;
+        font-size:20px;
+        color:white;     
+        }
+
+        QCheckBox::indicator {
+        width:  25px;
+        height: 25px;
+        }
+        '''     
     
         self.setStyleSheet('background-color: blue;')
         layout = QGridLayout()
@@ -539,6 +551,12 @@ class OptionsForm(QDialog):
         label_logo = QLabel('<font size="10"> PatrolBot Options </font>')
         label_logo.setStyleSheet("color: white;")
         layout.addWidget(label_logo, 0, 0)
+        
+        self.textlbl = QLabel(self)
+        self.textlbl.move(400,410)
+        self.textlbl.setText("Objects to Detect:")
+        self.textlbl.setStyleSheet("color: white; font-size:24px;" )
+        self.textlbl.resize(200,20)
 
         button_back = QPushButton('Back')
         button_back.setStyleSheet("color: black;")
@@ -552,29 +570,40 @@ class OptionsForm(QDialog):
         self.enable_box.resize(320,40)
         self.enable_box.stateChanged.connect(self.statechanged)
 
-        
+        self.People = QCheckBox("People",self)
+        self.People.setChecked(True)
+        self.People.move(400,450)
+        self.People.resize(320,40)
+        self.People.setStyleSheet(StyleSheet)
+
+        self.Bikes = QCheckBox("Bikes",self)
+        self.Bikes.setChecked(True)
+        self.Bikes.move(400,490)
+        self.Bikes.resize(320,40)
+        self.Bikes.setStyleSheet(StyleSheet)
+
+        self.AngleGrinders = QCheckBox("Angle Grinders",self)
+        self.AngleGrinders.setChecked(True)
+        self.AngleGrinders.move(400,530)
+        self.AngleGrinders.resize(320,40)
+        self.AngleGrinders.setStyleSheet(StyleSheet)
+
+        self.BoltCutters = QCheckBox("Bolt Cutters",self)
+        self.BoltCutters.setChecked(True)
+        self.BoltCutters.move(400,570)
+        self.BoltCutters.resize(320,40)
+        self.BoltCutters.setStyleSheet(StyleSheet)
 
         self.run_model_box = QCheckBox("Run Object Detection",self)
         self.run_model_box.setChecked(True)
         self.run_model_box.move(20,450)
         self.run_model_box.resize(320,40)
         self.run_model_box.stateChanged.connect(self.statechanged)
-
-        StyleSheet = '''
-        QCheckBox {
-        spacing: 5px;
-        font-size:20px;
-        color:white;     
-        }
-
-        QCheckBox::indicator {
-        width:  25px;
-        height: 25px;
-        }
-        '''     
         
         self.enable_box.setStyleSheet(StyleSheet)
         self.run_model_box.setStyleSheet(StyleSheet)
+
+
 
     def statechanged(self, int):
         global enableFlag
