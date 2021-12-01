@@ -176,7 +176,7 @@ class ShowDashboard(QDialog):
 
     def __init__(self):
         super().__init__()
-        
+    
         self.setStyleSheet('background-color: blue;')
         layout = QGridLayout()
         self.setLayout(layout)
@@ -508,7 +508,9 @@ class CameraFeed(QThread):
 
         cv2.putText(img, label, (x-10,y-10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
 
+global enable_labels;
 enable_labels = True;
+global run_model;
 run_model = True;
 class OptionsForm(QDialog):
     def __init__(self):
@@ -560,10 +562,13 @@ class OptionsForm(QDialog):
 
     def statechanged(self, int):
         if self.enable_box.isChecked():
-            enable_labels = True;
+            global enable_labels;
+            enable_labels = True
         else :
             enable_labels = False;
+        
         if self.run_model_box.isChecked():
+            global run_model;
             run_model = True;
         else :
             run_model = False;
