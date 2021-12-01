@@ -508,6 +508,8 @@ class CameraFeed(QThread):
 
         cv2.putText(img, label, (x-10,y-10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
 
+enable_labels = True;
+run_model = True;
 class OptionsForm(QDialog):
     def __init__(self):
         super().__init__()
@@ -526,10 +528,19 @@ class OptionsForm(QDialog):
         button_back.clicked.connect(self.back)
         layout.addWidget(button_back, 1, 0)
 
-        self.b = QCheckBox("Enable Overlay",self)
-        self.b.setChecked(True)
-        self.b.move(20,400)
-        self.b.resize(320,40)
+        self.enable_box = QCheckBox("Enable Overlay",self)
+        self.enable_box.setChecked(True)
+        self.enable_box.move(20,410)
+        self.enable_box.resize(320,40)
+        self.enable_box.stateChanged.connect(self.statechanged)
+
+        
+
+        self.run_model_box = QCheckBox("Run Object Detection",self)
+        self.run_model_box.setChecked(True)
+        self.run_model_box.move(20,450)
+        self.run_model_box.resize(320,40)
+        self.run_model_box.stateChanged.connect(self.statechanged)
 
         StyleSheet = '''
         QCheckBox {
@@ -544,7 +555,18 @@ class OptionsForm(QDialog):
         }
         '''     
         
-        self.b.setStyleSheet(StyleSheet)       
+        self.enable_box.setStyleSheet(StyleSheet)
+        self.run_model_box.setStyleSheet(StyleSheet)
+
+    def statechanged(self, int):
+        if self.enable_box.isChecked():
+            enable_labels = True;
+        else :
+            enable_labels = False;
+        if self.run_model_box.isChecked():
+            run_model = True;
+        else :
+            run_model = False;
 
     def back(self):
         #set stack index to 3 which is where the dashboard page is located
