@@ -11,7 +11,9 @@ from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
 from PyQt5.QtWebEngineWidgets import QWebEngineSettings, QWebEngineView
 
+#global variable to toggle bounding boxes and labels
 enableFlag = True
+#global variable toggle object detection
 runModel = True
 
 class WelcomeScreen(QDialog):
@@ -352,6 +354,7 @@ class CameraFeed(QThread):
         #read in pretrained YoloV3 model with OpenCV
         #net = cv2.dnn.readNet(weightsPath, configPath)
         global runModel
+        modelLoaded = False
         
         if(runModel == True):
             #Torch code adapted from https://github.com/akash-agni/Real-Time-Object-Detection/blob/main/Object_Detection_Youtube.py
@@ -364,6 +367,7 @@ class CameraFeed(QThread):
             classes = model.names
             class_ids = [0,1,2,3]
             COLORS = np.random.uniform(0, 255, size=(len(classes), 3))
+            modelLoaded = True
 
         while self.ThreadActive:
             ret, frame = Capture.read()
@@ -373,8 +377,15 @@ class CameraFeed(QThread):
                 
                 #flip video frame, so it isn't reversed
                 image = cv2.flip(image, 1)
+
+                #if the model is turned on but the object never initialized
+                #stop the camera feed to prevent crashing
+                if(runModel == True and modelLoaded == False):
+                    self.stop()
                 
-                if(runModel == True):
+                #if model is turned on and the object is initialized
+                #run object detection on each frame
+                if(runModel == True and modelLoaded == True):
                     ################################################################
                     #TORCH OBJECT DETECTION
                     ################################################################
@@ -403,6 +414,8 @@ class CameraFeed(QThread):
                             #get label to send to dashbaord
                             label = classes[class_number]
                             x1, y1, x2, y2 = int(row[0]*x_shape), int(row[1]*y_shape), int(row[2]*x_shape), int(row[3]*y_shape)
+
+                            #if global enable flag is set true then show boxes
                             global enableFlag
                             if (enableFlag == True):
                                 #draw bounding box
@@ -567,10 +580,13 @@ class OptionsForm(QDialog):
         global enableFlag
         global runModel
         
+        #if box is checked bounding boxes enabled
         if self.enable_box.isChecked():
             enableFlag = True
         else :
             enableFlag = False
+        
+        #if box is checked model is enabled
         if self.run_model_box.isChecked():
             runModel = True
         else :
