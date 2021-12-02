@@ -21,6 +21,8 @@ if "armv71" not in os.uname():
 enableFlag = True
 #global variable toggle object detection
 runModel = True
+#global variable to toggle specific objects being labeled
+labelFlags = {'person': True, 'bicycle': True, 'angle grinder': True, 'bolt cutter': True}
 
 class WelcomeScreen(QDialog):
     #PyQt5 page format code adapted from https://github.com/codefirstio/pyqt5-full-app-tutorial-for-beginners/blob/main/main.py
@@ -548,7 +550,6 @@ class OptionsForm(QDialog):
         font-size:20px;
         color:white;     
         }
-
         QCheckBox::indicator {
         width:  25px;
         height: 25px;
@@ -586,24 +587,28 @@ class OptionsForm(QDialog):
         self.People.move(400,450)
         self.People.resize(320,40)
         self.People.setStyleSheet(StyleSheet)
+        self.People.stateChanged.connect(self.statechanged1)
 
         self.Bikes = QCheckBox("Bikes",self)
         self.Bikes.setChecked(True)
         self.Bikes.move(400,490)
         self.Bikes.resize(320,40)
         self.Bikes.setStyleSheet(StyleSheet)
+        self.Bikes.stateChanged.connect(self.statechanged1)
 
         self.AngleGrinders = QCheckBox("Angle Grinders",self)
         self.AngleGrinders.setChecked(True)
         self.AngleGrinders.move(400,530)
         self.AngleGrinders.resize(320,40)
         self.AngleGrinders.setStyleSheet(StyleSheet)
+        self.AngleGrinders.stateChanged.connect(self.statechanged1)
 
         self.BoltCutters = QCheckBox("Bolt Cutters",self)
         self.BoltCutters.setChecked(True)
         self.BoltCutters.move(400,570)
         self.BoltCutters.resize(320,40)
         self.BoltCutters.setStyleSheet(StyleSheet)
+        self.BoltCutters.stateChanged.connect(self.statechanged1)
 
         self.run_model_box = QCheckBox("Run Object Detection",self)
         self.run_model_box.setChecked(True)
@@ -631,6 +636,35 @@ class OptionsForm(QDialog):
             runModel = True
         else :
             runModel = False
+    
+    def statechanged1(self, int):
+        global labelFlags
+
+        #if people box is checked label is enabled
+        if self.People.isChecked():
+            labelFlags['person'] = True
+        else :
+            labelFlags['person'] = False
+        
+        #if bike box is checked label is enabled
+        if self.Bikes.isChecked():
+            labelFlags['bicycle'] = True
+        else :
+            labelFlags['bicycle'] = False
+        
+        #if angle grinder box is checked label is enabled
+        if self.AngleGrinders.isChecked():
+            labelFlags['angle grinder'] = True
+        else :
+            labelFlags['angle grinder'] = False
+
+        #if bolt cutter box is checked label is enabled
+        if self.BoltCutters.isChecked():
+            labelFlags['bolt cutter'] = True
+        else :
+            labelFlags['bolt cutter'] = False
+
+
 
     def back(self):
         #set stack index to 3 which is where the dashboard page is located
