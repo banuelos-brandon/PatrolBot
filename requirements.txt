@@ -11,3 +11,6 @@ PyQt5 ~= 5.15.6
 # opencv should not contain any GUI functionality,
 # PyQt5 is used for the GUI
 opencv-python-headless ~= 4.5.4.58
+
+# for manual controls
+pynput == 1.7.5
