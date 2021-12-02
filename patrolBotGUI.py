@@ -9,7 +9,13 @@ from functools import partial
 from PyQt5.QtGui import *
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
-from PyQt5.QtWebEngineWidgets import QWebEngineSettings, QWebEngineView
+
+use_web_engine = False
+if "arm71" not in os.uname():
+    # Do not import PyQt5.WebEngine if you are using the raspberry pi since it is not supported.
+    # Otherwise, use the web engine for every other platform.
+    use_web_engine = True
+    from PyQt5.QtWebEngineWidgets import QWebEngineSettings, QWebEngineView    
 
 #global variable to toggle bounding boxes and labels
 enableFlag = True
@@ -189,12 +195,14 @@ class ShowDashboard(QDialog):
         #declare CameraFeed thread object within dashboard
         self.camera = CameraFeed()
 
-        # declare canvas map web view thread object within dashboard
-        self.canvas_web_view = CanvasMap(
-            view=QWebEngineView(),
-            web_attributes=[QWebEngineSettings.JavascriptEnabled],
-            file_path="images/mackay.html",
-        )
+        if use_web_engine:
+            # declare canvas map web view thread object within dashboard
+            # only if the use_web_engine flag is set to True
+            self.canvas_web_view = CanvasMap(
+                view=QWebEngineView(),
+                web_attributes=[QWebEngineSettings.JavascriptEnabled],
+                file_path="images/mackay.html",
+            )
 
         label_logo = QLabel('<font size="10"> PatrolBot Dashboard </font>')
         label_logo.setStyleSheet("color: white;")
@@ -229,16 +237,19 @@ class ShowDashboard(QDialog):
         stop_camera.clicked.connect(self.camera.stop)
         layout.addWidget(stop_camera, 1, 2)
 
-        canvas_map_file = self.canvas_web_view.get_map_file()
-        view = self.canvas_web_view.view
-        view.load(QUrl(canvas_map_file))
-        layout.addWidget(self.canvas_web_view.view, 2, 3, 2, 1)
+        if use_web_engine:
+            # If pyqt5.webengine is available, use it.
+            # Add canvas map web view to layout
+            canvas_map_file = self.canvas_web_view.get_map_file()
+            view = self.canvas_web_view.view
+            view.load(QUrl(canvas_map_file))
+            layout.addWidget(self.canvas_web_view.view, 2, 3, 2, 1)
 
-        start_canvas_webview = QPushButton("Canvas Map")
-        start_canvas_webview.setStyleSheet("color: black;")
-        start_canvas_webview.setStyleSheet("background-color: white;")
-        start_canvas_webview.clicked.connect(partial(self.button_listener, self.canvas_web_view.status))
-        layout.addWidget(start_canvas_webview, 1, 3)
+            start_canvas_webview = QPushButton("Canvas Map")
+            start_canvas_webview.setStyleSheet("color: black;")
+            start_canvas_webview.setStyleSheet("background-color: white;")
+            start_canvas_webview.clicked.connect(partial(self.button_listener, self.canvas_web_view.status))
+            layout.addWidget(start_canvas_webview, 1, 3)
 
         button_options = QPushButton('Options')
         button_options.setStyleSheet("color: black;")
