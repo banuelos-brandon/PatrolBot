@@ -11,7 +11,7 @@ from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
 
 use_web_engine = False
-if "arm71" not in os.uname():
+if "armv71" not in os.uname():
     # Do not import PyQt5.WebEngine if you are using the raspberry pi since it is not supported.
     # Otherwise, use the web engine for every other platform.
     use_web_engine = True
