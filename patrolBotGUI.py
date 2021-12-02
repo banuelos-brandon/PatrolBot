@@ -22,7 +22,7 @@ enableFlag = True
 #global variable toggle object detection
 runModel = True
 #global variable to toggle specific objects being labeled
-labelFlags = {'person': True, 'bicycle': True, 'angle grinder': True, 'bolt cutter': True}
+labelFlags = {'Person': True, 'Bike': True, 'Angle Grinder': True, 'Bolt Cutters': True}
 
 class WelcomeScreen(QDialog):
     #PyQt5 page format code adapted from https://github.com/codefirstio/pyqt5-full-app-tutorial-for-beginners/blob/main/main.py
@@ -347,25 +347,6 @@ class CameraFeed(QThread):
         self.ThreadActive = True
         Capture = cv2.VideoCapture(0)
 
-        #Not in USE
-        #OpenCV code adapted from https://towardsdatascience.com/yolo-object-detection-with-opencv-and-python-21e50ac599e9
-
-        #I'm using the regular sized YoloV3 in this example
-        #You can use whatever size/model as long as you have the .names file
-        #.weights file, and .cfg file for it
-
-        #yolov3 requires a .names file with class names. Replace with your own exact path
-        #labelsPath = "/Users/brandonbanuelos/Documents/CS 425/Patrol Bot/Yolo/coco.names"
-        #get class names for coco example 
-        #labels = open(labelsPath).read().strip().split("\n")
-        #implement a list of random colors for each class
-        #COLORS = np.random.uniform(0, 255, size=(len(labels), 3))
-        #get pretrained weights for YoloV3 and OpenCV. Replace with your own exact path
-        #weightsPath = "/Users/brandonbanuelos/Documents/CS 425/Patrol Bot/yolov3.weights"
-        #get get config file for YoloV3 and OpenCV. Replace with your own exact path
-        #configPath = "/Users/brandonbanuelos/Documents/CS 425/Patrol Bot/yolov3-darknet-master/yolov3.cfg"
-        #read in pretrained YoloV3 model with OpenCV
-        #net = cv2.dnn.readNet(weightsPath, configPath)
         global runModel
         modelLoaded = False
         
@@ -430,91 +411,14 @@ class CameraFeed(QThread):
 
                             #if global enable flag is set true then show boxes
                             global enableFlag
+                            global labelFlags
                             if (enableFlag == True):
-                                #draw bounding box
-                                cv2.rectangle(image, (int(x1),int(y1)), (int(x2),int(y2)), color, 2)
-                                #give bounding box a text label
-                                cv2.putText(image, str(classes[int(labels[i])]), (int(x1)-10, int(y1)-10), cv2.FONT_HERSHEY_SIMPLEX, 2, color, 2)
+                                if (labelFlags[label] == True):
+                                    #draw bounding box
+                                    cv2.rectangle(image, (int(x1),int(y1)), (int(x2),int(y2)), color, 2)
+                                    #give bounding box a text label
+                                    cv2.putText(image, str(classes[int(labels[i])]), (int(x1)-10, int(y1)-10), cv2.FONT_HERSHEY_SIMPLEX, 2, color, 2)
                             self.LogUpdate.emit(label)
-                
-                
-                '''
-                ################################################################
-                #OPEN CV OBJECT DETECTION
-                ################################################################
-                
-                #get dimensions of the current video frame
-                Width = image.shape[1]
-                Height = image.shape[0]
-                scale = 0.00392
-               
-                #normalize input image so it works as an input to neural network
-                blob = cv2.dnn.blobFromImage(image, scale, (320,320), (0,0,0), True, crop=False)
-                #set YoloV3 input as this normalized image
-                net.setInput(blob)
-
-                #find the outputs of the network
-                layer_names = net.getLayerNames()
-                output_layers = [layer_names[i-1] for i in net.getUnconnectedOutLayers()]
-                outs = net.forward(output_layers)
-                
-                box_count = 0
-                class_ids = []
-                confidences = []
-                boxes = []
-                conf_threshold = 0.2
-                nms_threshold = 0.3
-
-                #for every output layer
-                for out in outs:
-
-                    #for every prediction in each layer
-                    for detection in out:
-                        #find the class with the highest confidence
-                        scores = detection[5:]
-                        class_id = np.argmax(scores)
-                        confidence = scores[class_id]
-
-                        #ensure confidence is greater than 0.5
-                        if confidence > 0.5:
-                            center_x = int(detection[0] * Width)
-                            center_y = int(detection[1] * Height)
-                            w = int(detection[2] * Width)
-                            h = int(detection[3] * Height)
-                            x = center_x - w / 2
-                            y = center_y - h / 2
-
-                            #append the information for the best prediction
-                            class_ids.append(class_id)
-                            confidences.append(float(confidence))
-                            boxes.append([x, y, w, h])
-                            box_count += 1
-                
-                #apply non maximum supression to the boxes available to ensure
-                #only the best one is output      
-                indices = cv2.dnn.NMSBoxes(boxes, confidences, conf_threshold, nms_threshold)
-                
-                #for every prediction found
-                for i in indices:
-                    box = boxes[i]
-                    x = box[0]
-                    y = box[1]
-                    w = box[2]
-                    h = box[3]
-                    x2 = x+w
-                    y2 = y+h
-                    
-                    color = COLORS[class_ids[i]]
-
-                    #draw bounding box
-                    cv2.rectangle(image, (int(x),int(y)), (int(x2),int(y2)), color, 2)
-                    class_number = class_ids[i]
-                    label = str(labels[class_number])
-                    #give bounding box a text label
-                    cv2.putText(image, label, (int(x)-10,int(y)-10), cv2.FONT_HERSHEY_SIMPLEX, 2, color, 2)
-                    #send signal to dashboard class with name of label
-                    self.LogUpdate.emit(label)
-                '''
 
                 #convert the image to QImage format
                 ConvertToQtFormat = QImage(image.data, image.shape[1], image.shape[0], QImage.Format_RGB888)
@@ -526,20 +430,6 @@ class CameraFeed(QThread):
     def stop(self):
         self.ThreadActive = False
         self.quit()
-
-    #method not used currently
-    #can be helpful to implement this method later as a way to toggle
-    #the printing of labels
-    def draw_bounding_box(img, class_id, confidence, x, y, x_plus_w, y_plus_h):
-
-        label = str(classes[class_id])
-
-        #color = COLORS[class_id]
-        color = (255,0,0)
-
-        cv2.rectangle(img, (x,y), (x_plus_w,y_plus_h), color, 2)
-
-        cv2.putText(img, label, (x-10,y-10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
 
 class OptionsForm(QDialog):
     def __init__(self):
@@ -566,7 +456,7 @@ class OptionsForm(QDialog):
         
         self.textlbl = QLabel(self)
         self.textlbl.move(400,410)
-        self.textlbl.setText("Objects to Detect:")
+        self.textlbl.setText("Objects to Label:")
         self.textlbl.setStyleSheet("color: white; font-size:24px;" )
         self.textlbl.resize(200,20)
 
@@ -642,27 +532,27 @@ class OptionsForm(QDialog):
 
         #if people box is checked label is enabled
         if self.People.isChecked():
-            labelFlags['person'] = True
+            labelFlags['Person'] = True
         else :
-            labelFlags['person'] = False
+            labelFlags['Person'] = False
         
         #if bike box is checked label is enabled
         if self.Bikes.isChecked():
-            labelFlags['bicycle'] = True
+            labelFlags['Bike'] = True
         else :
-            labelFlags['bicycle'] = False
+            labelFlags['Bike'] = False
         
         #if angle grinder box is checked label is enabled
         if self.AngleGrinders.isChecked():
-            labelFlags['angle grinder'] = True
+            labelFlags['Angle Grinder'] = True
         else :
-            labelFlags['angle grinder'] = False
+            labelFlags['Angle Grinder'] = False
 
         #if bolt cutter box is checked label is enabled
         if self.BoltCutters.isChecked():
-            labelFlags['bolt cutter'] = True
+            labelFlags['Bolt Cutters'] = True
         else :
-            labelFlags['bolt cutter'] = False
+            labelFlags['Bolt Cutters'] = False
 
 
 
