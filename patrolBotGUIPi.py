@@ -5,6 +5,8 @@ import torch
 import numpy as np
 from datetime import datetime
 from functools import partial
+from pynput import keyboard
+from MotorControlsModule import Motors
 
 from PyQt5.QtGui import *
 from PyQt5.QtWidgets import *
@@ -15,7 +17,7 @@ if "armv71" not in os.uname():
     # Do not import PyQt5.WebEngine if you are using the raspberry pi since it is not supported.
     # Otherwise, use the web engine for every other platform.
     use_web_engine = True
-    from PyQt5.QtWebEngineWidgets import QWebEngineSettings, QWebEngineView
+    #from PyQt5.QtWebEngineWidgets import QWebEngineSettings, QWebEngineView
 
 #global variable to toggle bounding boxes and labels
 enableFlag = True
@@ -23,6 +25,11 @@ enableFlag = True
 runModel = True
 #global variable to toggle specific objects being labeled
 labelFlags = {'Person': True, 'Bike': True, 'Angle Grinder': True, 'Bolt Cutters': True}
+#global motor class object
+motor = Motors(2, 3, 4, 17, 22, 27)
+#global variable to toggle keyboard input detection on Pi
+listener_flag = False
+
 
 class WelcomeScreen(QDialog):
     #PyQt5 page format code adapted from https://github.com/codefirstio/pyqt5-full-app-tutorial-for-beginners/blob/main/main.py
@@ -197,14 +204,14 @@ class ShowDashboard(QDialog):
         #declare CameraFeed thread object within dashboard
         self.camera = CameraFeed()
 
-        if use_web_engine:
+        '''if use_web_engine:
             # declare canvas map web view thread object within dashboard
             # only if the use_web_engine flag is set to True
             self.canvas_web_view = CanvasMap(
                 view=QWebEngineView(),
                 web_attributes=[QWebEngineSettings.JavascriptEnabled],
                 file_path="images/mackay.html",
-            )
+            )'''
 
         label_logo = QLabel('<font size="10"> PatrolBot Dashboard </font>')
         label_logo.setStyleSheet("color: white;")
@@ -239,7 +246,7 @@ class ShowDashboard(QDialog):
         stop_camera.clicked.connect(self.camera.stop)
         layout.addWidget(stop_camera, 1, 2)
 
-        if use_web_engine:
+        '''if use_web_engine:
             # If pyqt5.webengine is available, use it.
             # Add canvas map web view to layout
             canvas_map_file = self.canvas_web_view.get_map_file()
@@ -251,7 +258,13 @@ class ShowDashboard(QDialog):
             start_canvas_webview.setStyleSheet("color: black;")
             start_canvas_webview.setStyleSheet("background-color: white;")
             start_canvas_webview.clicked.connect(partial(self.button_listener, self.canvas_web_view.status))
-            layout.addWidget(start_canvas_webview, 1, 3)
+            layout.addWidget(start_canvas_webview, 1, 3)'''
+
+        button_controls = QPushButton('Manual Controls')
+        button_controls.setStyleSheet("color: black;")
+        button_controls.setStyleSheet('background-color: white;')
+        button_controls.clicked.connect(self.controls)
+        layout.addWidget(button_controls, 1, 4)
 
         button_options = QPushButton('Options')
         button_options.setStyleSheet("color: black;")
@@ -270,6 +283,10 @@ class ShowDashboard(QDialog):
     def logout(self):
         #set stack index to 0 which is where the welcome page is located
         widget.setCurrentIndex(widget.currentIndex() - 3)
+
+    def controls(self):
+        widget.setCurrentIndex(widget.currentIndex() + 2)
+
 
     def options(self):
         #set stack index to 4 which is where the welcome page is located
@@ -304,7 +321,7 @@ class ShowDashboard(QDialog):
             #append to the log form
             self.log_form.appendPlainText(msg)
 
-class CanvasMap(QThread):
+'''class CanvasMap(QThread):
     webview_state = pyqtSignal(str)
 
     def __init__(self, view, web_attributes, file_path):
@@ -335,7 +352,7 @@ class CanvasMap(QThread):
         else:
             self.state = False
             self.view.setDisabled(True)
-            self.webview_state.emit("Stopped")
+            self.webview_state.emit("Stopped")'''
 
 class CameraFeed(QThread):
     #sends an updated QImage as a signal to the variable ImageUpdate
@@ -429,6 +446,88 @@ class CameraFeed(QThread):
     #stop the threads execution
     def stop(self):
         self.ThreadActive = False
+        self.quit()
+
+class ManualControlPage(QWidget):
+    def __init__(self):
+        super().__init__()
+        self.Worker = Worker()
+        self.setStyleSheet("background-color: blue;")
+        layout = QGridLayout()
+        self.setLayout(layout)
+        self.feed_label = QLabel()
+        self.feed_label.setStyleSheet("color: white;")
+        layout.addWidget(self.feed_label, 1.5, 0)
+        label_logo = QLabel('<font size="12">Click Start: Use WASD Keys to Move PatrolBot </font>')
+        label_logo.setStyleSheet("color: white;")
+        layout.addWidget(label_logo, 0, 0)
+
+        button_start = QPushButton("Start")
+        button_start.setStyleSheet("color: black;")
+        button_start.setStyleSheet("background-color: blue;")
+        button_start.clicked.connect(self.start)
+        layout.addWidget(button_start, 0, 2)
+
+        button_stop = QPushButton("Stop")
+        button_stop.setStyleSheet("color: black;")
+        button_stop.setStyleSheet("background-color: blue;")
+        button_stop.clicked.connect(self.stop)
+        layout.addWidget(button_stop, 0, 3)
+
+        button_back = QPushButton("Back")
+        button_back.setStyleSheet("color: black;")
+        button_back.setStyleSheet("background-color: blue;")
+        button_back.clicked.connect(self.back)
+        layout.addWidget(button_back, 0, 4)
+
+    #updates image frame in GUI from camera feed
+    def ImageUpdateSlot(self, cv_img):
+        qt_img = self.convert_cv_qt(cv_img)
+        self.feed_label.setPixmap(qt_img)
+
+    #converts the image frame into Qt format
+    def convert_cv_qt(self, cv_img):
+        rgb_image = cv2.cvtColor(cv_img, cv2.COLOR_BGR2RGB)
+        h, w, ch = rgb_image.shape
+        bytes_per_line = ch * w
+        convert_to_qt_format = QImage(rgb_image.data, w, h, bytes_per_line, QImage.Format_RGB888)
+        final_image = convert_to_qt_format.scaled(640, 480, Qt.KeepAspectRatio)
+        return QPixmap.fromImage(final_image)
+
+    #starts camera feed to GUI and starts detecting keyboard input
+    def start(self):
+        global listener_flag
+        listener_flag = True
+        self.Worker.ImageUpdate.connect(self.ImageUpdateSlot)
+        self.Worker.start()
+
+    #stops keyboard input detection
+    def stop(self):
+        global listener_flag
+        listener_flag = False
+
+    #frees the worker thread, stops keyboard detection, and returns to dashboard page in GUI
+    def back(self):
+        global listener_flag
+        listener_flag = False
+        self.Worker.stop()
+        widget.setCurrentIndex(widget.currentIndex() -2)
+
+#Worker thread class for manual controls page to aid with video output
+class Worker(QThread):
+    ImageUpdate = pyqtSignal(np.ndarray)
+    def __init__(self):
+        super().__init__()
+        self.run_flag = True
+    def run(self):
+        capture = cv2.VideoCapture(0)
+        while self.run_flag:
+            ret, frame = capture.read()
+            if ret:
+                self.ImageUpdate.emit(frame)
+        capture.release()
+    def stop(self):
+        self.run_flag = False
         self.quit()
 
 class OptionsForm(QDialog):
@@ -560,8 +659,32 @@ class OptionsForm(QDialog):
         #set stack index to 3 which is where the dashboard page is located
         widget.setCurrentIndex(widget.currentIndex() - 1)
 
+#detects key press when listener_flag is True
+def on_press(key):
+    global motor
+    global listener_flag
+    if listener_flag == True:
+        if key.char == 'A' or key.char == 'a':
+            motor.left(50)
+        elif key.char == 'W' or key.char == 'w':
+            motor.forward(50)
+        elif key.char == 'S' or key.char == 's':
+            motor.reverse(50)
+        elif key.char == 'D' or key.char == 'd':
+            motor.right(50)
+
+#detects key release when listener_flag is True
+def on_release(key):
+    global motor
+    global listener_flag
+    if listener_flag == True:
+        motor.stop(0.000000001)
+
 if __name__ == '__main__':
     app = QApplication(sys.argv)
+    #creates and starts keyboard listener thread
+    listener = keyboard.Listener(on_press=on_press, on_release=on_release)
+    listener.start()
     #create welcome screen page
     form = WelcomeScreen()
     #declare stack of widgets
@@ -584,8 +707,13 @@ if __name__ == '__main__':
     options = OptionsForm()
     #add options page to stack at index 4
     widget.addWidget(options)
+    #create controls page
+    controls = ManualControlPage()
+    #add controls page to stack at index 5
+    widget.addWidget(controls)
     widget.setFixedHeight(800)
     widget.setFixedWidth(1200)
     #display widget at bottom of stack (welcome page)
     widget.show()
     sys.exit(app.exec_())
+    listener.stop()
