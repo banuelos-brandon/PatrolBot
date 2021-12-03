@@ -352,6 +352,50 @@ class CanvasMap(QThread):
             self.view.setDisabled(True)
             self.webview_state.emit("Stopped")
 
+class NotifcationIcon:
+    security_warning = range(1)
+    Types = {
+        security_warning: None,
+    }
+    @classmethod
+    def initialize(cls):
+        cls.Types[cls.security_warning] = QPixmap(os.path.join(os.getcwd(), 'images/baseline_warning_black_24dp.png'))
+
+class NotificationItem():
+    closed = pyqtSignal(QListWidgetItem)
+
+    def __init__(self, title, message, item, *args, notif_type=0, callback=None, **kwargs):
+        super(NotificationItem, self).__init__(*args, **kwargs)
+
+class NotificationWindow(QListWidget):
+
+    def __init__(self, *args, **kwargs):
+        super(NotificationWindow, self).__init__(*args, **kwargs)
+        self.setSpacing(20)
+        self.setMinimumWidth(300)
+        self.setMaximumWidth(300)
+
+        QApplication.instance().setQuitOnLastWindowClosed(True)
+
+        self.setFrameShape(self.noFrame)
+
+    @classmethod
+    def _createInstance(cls):
+        if not cls._instance:
+            cls._instance = NotificationWindow()
+            cls._instance.show()
+            NotifcationIcon.initialize()
+
+    @classmethod
+    def security_warning(cls, title, message, callback=None):
+        # creates a notification window for potential security alerts
+        cls._createInstance()
+        item = QListWidgetItem(cls._instance)
+        window = NotificationItem(title, message, item, cls._instance, notif_type=NotifcationIcon.security_warning, callback=callback)
+        window.closed.connect(cls._instance.close)
+        item.setSizeHint(QSize(cls._instance.width() - cls._instance.spacing(), window.height()))
+        cls._instance.addItemWidget(item, window)
+
 class CameraFeed(QThread):
     #sends an updated QImage as a signal to the variable ImageUpdate
     ImageUpdate = pyqtSignal(QImage)
