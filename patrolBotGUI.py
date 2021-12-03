@@ -227,6 +227,16 @@ class ShowDashboard(QDialog):
         self.log_form.appendPlainText(msg)
         layout.addWidget(self.log_form, 2, 1, 1, 2)
 
+        # An notification list to maintain important security alerts
+        self.security_alerts = QPlainTextEdit('Security Alerts')
+        self.security_alerts.setStyleSheet("color: white;")
+        self.security_alerts.setStyleSheet('background-color: white;')
+        self.security_alerts.setReadOnly(True)
+        now = datetime.now()
+        current_time = now.strftime("%H:%M:%S")
+        msg = current_time + ': No security alerts'
+        self.security_alerts.appendPlainText(msg)
+        layout.addWidget(self.security_alerts, 3, 1, 1, 2)
 
         start_camera = QPushButton('Start Camera')
         start_camera.setStyleSheet("color: black;")
@@ -290,6 +300,10 @@ class ShowDashboard(QDialog):
         #puts the update image onto the screen
         self.feed_label.setPixmap(QPixmap.fromImage(Image))
 
+    def LogSecurityAlerts(self, alert='Found potential threat', conf_level=0.0):
+        now = datetime.now()
+        current_time = now.strftime("%H:%M:%S")
+        self.security_alerts.appendPlainText(current_time + ': ' + alert + '; Confidence Level: ' + str(conf_level))
 
     def LogUpdateSlot(self, label):
         #get current time
