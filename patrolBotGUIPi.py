@@ -1,3 +1,7 @@
+# File:     patrolBotGUI.py
+# Date:     December 3rd 2021
+# Authors:  Brandon Banuelos, Jesus Aguilera, Connor Callister, Max Orloff, Michael Stepzinski
+# Purpose:  GUI for the CS425 PatrolBot project, works on ARM architecture
 import sys
 import os
 import cv2
@@ -13,7 +17,7 @@ from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
 
 use_web_engine = False
-if "armv71" not in os.uname():
+if "armv7l" not in os.uname():
     # Do not import PyQt5.WebEngine if you are using the raspberry pi since it is not supported.
     # Otherwise, use the web engine for every other platform.
     use_web_engine = True

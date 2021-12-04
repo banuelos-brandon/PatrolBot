@@ -1,3 +1,8 @@
+# File:     patrolBotGUI.py
+# Date:     December 3rd 2021
+# Authors:  Brandon Banuelos, Jesus Aguilera, Connor Callister, Max Orloff, Michael Stepzinski
+# Purpose:  GUI for the CS425 PatrolBot project, works on x86 architecture
+
 import sys
 import os
 import cv2
@@ -10,24 +15,33 @@ from PyQt5.QtGui import *
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
 
+# PyQt5.WebEngine is unsupported on ARM, handle exception for that case
 try:
     from PyQt5.QtWebEngineWidgets import QWebEngineView, QWebEngineSettings
     USE_WEB_ENGINE = True
 except ImportError:
-    # Do not import PyQt5.WebEngine if you are using the raspberry pi since it is not supported.
-    # Otherwise, use the web engine for every other platform.
     USE_WEB_ENGINE = False
 
-#global variable to toggle bounding boxes and labels
+# Global variables
+
+#   Toggle bounding boxes and labels
 enableFlag = True
-#global variable toggle object detection
+#   Toggle object detection
 runModel = True
-#global variable to toggle specific objects being labeled
+#   Toggle specific objects being labeled
 labelFlags = {'Person': True, 'Bike': True, 'Angle Grinder': True, 'Bolt Cutters': True}
+#   Toggle specific objects being logged
+logFlags = {'Person': True, 'Bike': True, 'Angle Grinder': True, 'Bolt Cutters': True}
+#   Action log save directory path
+action_dir_path = 'Action_Logs/'
+#   Alert log save directory path
+alert_dir_path = 'Alert_Logs/'
 
+# Define welcome screen page
 class WelcomeScreen(QDialog):
-    #PyQt5 page format code adapted from https://github.com/codefirstio/pyqt5-full-app-tutorial-for-beginners/blob/main/main.py
+    # PyQt5 page format code adapted from https://github.com/codefirstio/pyqt5-full-app-tutorial-for-beginners/blob/main/main.py
 
+    # Define WelcomeScreen text and buttons
     def __init__(self):
         super(WelcomeScreen, self).__init__()
 
@@ -56,15 +70,19 @@ class WelcomeScreen(QDialog):
 
         self.setLayout(layout)
 
+    # Define goToLogin button event
     def goToLogin(self):
-        #set stack index to 1 which is where the login page is located
+        # Set stack index to 1 for login page
         widget.setCurrentIndex(widget.currentIndex() + self.loginIndex)
 
+    # Define goToCreate button event
     def goToCreate(self):
-        #set stack index to 2 which is where the register page is located
+        # Set stack index to 2 for register page
         widget.setCurrentIndex(widget.currentIndex() + self.registerIndex)
 
+# Define create account page
 class CreateAccount(QDialog):
+    # Define text and buttons
     def __init__(self):
         super().__init__()
 
@@ -109,17 +127,21 @@ class CreateAccount(QDialog):
 
         self.setLayout(layout)
 
+    # Define button_login functionality
     def goToLogin(self):
-        #set stack index to 1 which is where the login page is located
+        # Set stack index to 1 for login page
         widget.setCurrentIndex(widget.currentIndex()-1)
 
+    # Define back button functionality
     def goBack(self):
-        #set stack index to 0 which is where the welcome page is located
+        # Set stack index to 0 for welcome page
         widget.setCurrentIndex(widget.currentIndex() -2 )
 
+# Define login form page
 class LoginForm(QDialog):
-    #login form code adapted from https://learndataanalysis.org/create-a-simple-login-form-pyqt5-tutorial/
+    # Login form code adapted from https://learndataanalysis.org/create-a-simple-login-form-pyqt5-tutorial/
 
+    # Define text and buttons
     def __init__(self):
         super().__init__()
 
@@ -165,29 +187,33 @@ class LoginForm(QDialog):
 
         self.setLayout(layout)
 
+    # Define on button_login clicked
     def check_password(self):
         msg = QMessageBox()
 
+        # Login is only 'Username' and 'password' for now
         if self.lineEdit_username.text() == 'Username' and self.lineEdit_password.text() == 'password':
             self.goToDashboard()
-
         else:
-            #output text box indicating unsuccessful login
+            # Output text box indicating unsuccessful login
             msg.setText('Incorrect Password')
             msg.exec_()
 
+    # Define successful login functionality
     def goToDashboard(self):
-        #set stack index to 3 which is where the dashboard page is located
+        # Set stack index to 3 for dashboard page
         widget.setCurrentIndex(widget.currentIndex() + 2)
 
+    # Define back button
     def goBack(self):
-        #set stack index to 0 which is where the welcome page is located
+        # Set stack index to 0 for welcome page
         widget.setCurrentIndex(widget.currentIndex() -1 )
 
-
+# Define dashboard page
 class ShowDashboard(QDialog):
-    #camera implementation code adapted from https://www.youtube.com/watch?v=dTDgbx-XelY
+    # Camera implementation code adapted from https://www.youtube.com/watch?v=dTDgbx-XelY
 
+    # Define text and buttons
     def __init__(self):
         super().__init__()
 
@@ -195,12 +221,12 @@ class ShowDashboard(QDialog):
         layout = QGridLayout()
         self.setLayout(layout)
 
-        #declare CameraFeed thread object within dashboard
+        # Declare CameraFeed thread object within dashboard
         self.camera = CameraFeed()
 
+        # Declare canvas_map_web_view thread object within dashboard
+        #  only if the use_web_engine flag is True
         if USE_WEB_ENGINE:
-            # declare canvas map web view thread object within dashboard
-            # only if the use_web_engine flag is set to True
             self.canvas_web_view = CanvasMap(
                 view=QWebEngineView(),
                 web_attributes=[QWebEngineSettings.JavascriptEnabled],
@@ -227,7 +253,13 @@ class ShowDashboard(QDialog):
         self.log_form.appendPlainText(msg)
         layout.addWidget(self.log_form, 2, 1, 1, 2)
 
-        # An notification list to maintain important security alerts
+        button_save_action_log = QPushButton('Save action log to file')
+        button_save_action_log.setStyleSheet('color: black;')
+        button_save_action_log.setStyleSheet('background-color: white;')
+        button_save_action_log.clicked.connect(self.save_action_log)
+        layout.addWidget(button_save_action_log, 3, 1, 1, 2)
+
+        # Notification list to maintain important security alerts
         self.security_alerts = QPlainTextEdit('Security Alerts')
         self.security_alerts.setStyleSheet("color: white;")
         self.security_alerts.setStyleSheet('background-color: white;')
@@ -236,7 +268,13 @@ class ShowDashboard(QDialog):
         current_time = now.strftime("%H:%M:%S")
         msg = current_time + ': No security alerts'
         self.security_alerts.appendPlainText(msg)
-        layout.addWidget(self.security_alerts, 3, 1, 1, 2)
+        layout.addWidget(self.security_alerts, 4, 1, 1, 2)
+
+        button_save_alert_log = QPushButton('Save alert log to file')
+        button_save_alert_log.setStyleSheet('color: black;')
+        button_save_alert_log.setStyleSheet('background-color: white;')
+        button_save_alert_log.clicked.connect(self.save_alert_log)
+        layout.addWidget(button_save_alert_log, 5, 1, 1, 2)
 
         start_camera = QPushButton('Start Camera')
         start_camera.setStyleSheet("color: black;")
@@ -250,9 +288,9 @@ class ShowDashboard(QDialog):
         stop_camera.clicked.connect(self.camera.stop)
         layout.addWidget(stop_camera, 1, 2)
 
+        # Add canvas_map_web_view to layout
+        #  only if the use_web_engine flag is True
         if USE_WEB_ENGINE:
-            # If pyqt5.webengine is available, use it.
-            # Add canvas map web view to layout
             canvas_map_file = self.canvas_web_view.get_map_file()
             view = self.canvas_web_view.view
             view.load(QUrl(canvas_map_file))
@@ -270,55 +308,99 @@ class ShowDashboard(QDialog):
         button_options.clicked.connect(self.options)
         layout.addWidget(button_options, 1, 5)
 
-        #camera feed is output on top of this widget
+        # Camera feed is output on top of this widget
         self.feed_label = QLabel('Waiting for camera input...')
         self.feed_label.setStyleSheet("color: white;")
         layout.addWidget(self.feed_label, 2,0)
 
+    # Define button_listener for start_canvas_webview
     def button_listener(self, func):
         func()
 
+    # Define logout button functionality
     def logout(self):
-        #set stack index to 0 which is where the welcome page is located
+        # Set stack index to 0 for welcome page
         widget.setCurrentIndex(widget.currentIndex() - 3)
 
+    # Define options button functionality
     def options(self):
-        #set stack index to 4 which is where the welcome page is located
+        # Set stack index to 4 for options
         widget.setCurrentIndex(widget.currentIndex() + 1)
 
+    # Define start camera button functionality
     def startCamera(self):
-        #start the camera thread
+        # Start the camera thread
         self.camera.start()
-        #call to update the camera feed to main thread
+        # Call to update the camera feed to main thread
         self.camera.ImageUpdate.connect(self.ImageUpdateSlot)
-        #call to update the log form
+        # Call to update the log form
         self.camera.LogUpdate.connect(self.LogUpdateSlot)
 
+    # Define image updates
     def ImageUpdateSlot(self, Image):
-        #turn the image into a QPixmap
-        #this form is readable to PyQt5 as an Image
-        #puts the update image onto the screen
+        # Turn the image into a QPixmap
+        # This form is readable to PyQt5 as an Image
+        # Puts the update image onto the screen
         self.feed_label.setPixmap(QPixmap.fromImage(Image))
 
+    # Define log security alerts
     def LogSecurityAlerts(self, alert='Found potential threat', conf_level=0.0):
         now = datetime.now()
         current_time = now.strftime("%H:%M:%S")
         self.security_alerts.appendPlainText(current_time + ': ' + alert + '; Confidence Level: ' + str(conf_level))
 
+    # Define text printed when camera updates log
     def LogUpdateSlot(self, label):
-        #get current time
+        # Get current time
         now = datetime.now()
         current_time = now.strftime("%H:%M:%S")
-        #Get timezone naive now
+        # Get timezone naive now
         dt = datetime.today()
-        #get current seconds
+        # Get current seconds
         seconds = (dt.timestamp() % 10)
-        #every 10 seconds append to log from
+        # Every 10 seconds append to log from
         if (int(seconds) == 0):
-            msg = "\n" + current_time + ": " + label + " detected"
-            #append to the log form
-            self.log_form.appendPlainText(msg)
+            if logFlags[label] == True:
+                msg = "\n" + current_time + ": " + label + " detected"
+                self.log_form.appendPlainText(msg)
 
+    # Define save action log button functionality
+    def save_action_log(self):
+        # If output directory doesnt exist, create it
+        if not os.path.isdir(action_dir_path):
+            os.makedirs(action_dir_path)
+        # Get current time, then reduce to relevant time components as string
+        now = datetime.now()
+        now = str(now.year) +           \
+            '_' + str(now.month) +      \
+            '_' + str(now.day) +        \
+            '_h' + str(now.hour) +      \
+            '_m' + str(now.minute) +    \
+            '_s' + str(now.second) + \
+            '.log'
+        # Create .txt file at path and output log
+        with open(action_dir_path + '/' + now, 'w') as f:
+            f.write(self.log_form.toPlainText())
+
+    # Define save alert log button functionality
+    def save_alert_log(self):
+        # If output directory doesnt exist, create it
+        if not os.path.isdir(alert_dir_path):
+            os.makedirs(alert_dir_path)
+        # Get current time, then reduce to relevant time components as string
+        now = datetime.now()
+        now = str(now.year) +           \
+            '_' + str(now.month) +      \
+            '_' + str(now.day) +        \
+            '_h' + str(now.hour) +      \
+            '_m' + str(now.minute) +    \
+            '_s' + str(now.second) + \
+            '.log'
+        # Create .txt file at path and output log
+        with open(alert_dir_path + '/' + now, 'w') as f:
+            f.write(self.security_alerts.toPlainText())
+
+# Define canvasmap widget
 class CanvasMap(QThread):
     webview_state = pyqtSignal(str)
 
@@ -328,7 +410,7 @@ class CanvasMap(QThread):
         self.web_attributes = web_attributes
         self.file_path = file_path
 
-        # set the webview inactive by default
+        # Set the webview inactive by default
         self.view.setDisabled(True)
 
         self.state = self.view.isEnabled()
@@ -342,7 +424,7 @@ class CanvasMap(QThread):
         return "file://" + os.path.join(os.getcwd(), self.file_path).replace("\\", "/")
 
     def status(self):
-        # enables/disables webview interactivity
+        # Enables/disables webview interactivity
         if not self.state:
             self.state = True
             self.view.setDisabled(False)
@@ -352,6 +434,7 @@ class CanvasMap(QThread):
             self.view.setDisabled(True)
             self.webview_state.emit("Stopped")
 
+# Define notification icon
 class NotifcationIcon:
     security_warning = range(1)
     Types = {
@@ -361,12 +444,14 @@ class NotifcationIcon:
     def initialize(cls):
         cls.Types[cls.security_warning] = QPixmap(os.path.join(os.getcwd(), 'images/baseline_warning_black_24dp.png'))
 
+# Define notification item
 class NotificationItem():
     closed = pyqtSignal(QListWidgetItem)
 
     def __init__(self, title, message, item, *args, notif_type=0, callback=None, **kwargs):
         super(NotificationItem, self).__init__(*args, **kwargs)
 
+# Define notification window
 class NotificationWindow(QListWidget):
 
     def __init__(self, *args, **kwargs):
@@ -388,7 +473,7 @@ class NotificationWindow(QListWidget):
 
     @classmethod
     def security_warning(cls, title, message, callback=None):
-        # creates a notification window for potential security alerts
+        # Creates a notification window for potential security alerts
         cls._createInstance()
         item = QListWidgetItem(cls._instance)
         window = NotificationItem(title, message, item, cls._instance, notif_type=NotifcationIcon.security_warning, callback=callback)
@@ -396,8 +481,9 @@ class NotificationWindow(QListWidget):
         item.setSizeHint(QSize(cls._instance.width() - cls._instance.spacing(), window.height()))
         cls._instance.addItemWidget(item, window)
 
+# Define camera feed thread
 class CameraFeed(QThread):
-    #sends an updated QImage as a signal to the variable ImageUpdate
+    # Sends an updated QImage as a signal to the variable ImageUpdate
     ImageUpdate = pyqtSignal(QImage)
 
     LogUpdate = pyqtSignal(str)
@@ -410,12 +496,12 @@ class CameraFeed(QThread):
         modelLoaded = False
 
         if(runModel == True):
-            #Torch code adapted from https://github.com/akash-agni/Real-Time-Object-Detection/blob/main/Object_Detection_Youtube.py
-            #Torch implementation. Replace third item with your YoloV5 weight's exact path
+            # Torch code adapted from https://github.com/akash-agni/Real-Time-Object-Detection/blob/main/Object_Detection_Youtube.py
+            # Torch implementation. Replace third item with your YoloV5 weight's exact path
             model_weight_path = os.path.join(os.getcwd(), 'model_weights/best.pt')
             model = torch.hub.load('ultralytics/yolov5', 'custom', model_weight_path)
             #model = torch.hub.load('ultralytics/yolov5', 'yolov5n')
-            #extract the names of the classes for trained the YoloV5 model
+            # Extract the names of the classes for trained the YoloV5 model
 
             classes = model.names
             class_ids = [0,1,2,3]
@@ -428,70 +514,71 @@ class CameraFeed(QThread):
 
                 image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
-                #flip video frame, so it isn't reversed
+                # Flip video frame, so it isn't reversed
                 image = cv2.flip(image, 1)
 
-                #if the model is turned on but the object never initialized
-                #stop the camera feed to prevent crashing
+                # If the model is turned on but the object never initialized,
+                #  stop the camera feed to prevent crashing
                 if(runModel == True and modelLoaded == False):
                     self.stop()
 
-                #if model is turned on and the object is initialized
-                #run object detection on each frame
+                # If model is turned on and the object is initialized
+                #  run object detection on each frame
                 if(runModel == True and modelLoaded == True):
                     ################################################################
                     #TORCH OBJECT DETECTION
                     ################################################################
 
-
-                    #get dimensions of the current video frame
+                    # Get dimensions of the current video frame
                     x_shape = image.shape[1]
                     y_shape = image.shape[0]
 
-                    #apply the Torch YoloV5 model to this frame
+                    # Apply the Torch YoloV5 model to this frame
                     results = model(image)
-                    #extract the labels and coordinates of the bounding boxes
+                    # Extract the labels and coordinates of the bounding boxes
                     labels, cords = results.xyxyn[0][:, -1].numpy(), results.xyxyn[0][:, :-1].numpy()
 
                     numberOfLabels = len(labels)
 
                     for i in range(numberOfLabels):
                         row = cords[i]
-                        #get the class number of current label
+                        # Get the class number of current label
                         class_number = int(labels[i])
-                        #index colors list with current label number
+                        # Index colors list with current label number
                         color = COLORS[class_ids[class_number]]
 
-                        #if confidence level is greater than 0.2
+                        # If confidence level is greater than 0.2
                         if row[4] >= 0.2:
-                            #get label to send to dashbaord
+                            # Get label to send to dashbaord
                             label = classes[class_number]
                             x1, y1, x2, y2 = int(row[0]*x_shape), int(row[1]*y_shape), int(row[2]*x_shape), int(row[3]*y_shape)
 
-                            #if global enable flag is set true then show boxes
+                            # If global enable flag is set true then show boxes
                             global enableFlag
                             global labelFlags
                             if (enableFlag == True):
                                 if (labelFlags[label] == True):
-                                    #draw bounding box
+                                    # Draw bounding box
                                     cv2.rectangle(image, (int(x1),int(y1)), (int(x2),int(y2)), color, 2)
-                                    #give bounding box a text label
+                                    # Give bounding box a text label
                                     cv2.putText(image, str(classes[int(labels[i])]), (int(x1)-10, int(y1)-10), cv2.FONT_HERSHEY_SIMPLEX, 2, color, 2)
                             self.LogUpdate.emit(label)
 
-                #convert the image to QImage format
+                # Convert the image to QImage format
                 ConvertToQtFormat = QImage(image.data, image.shape[1], image.shape[0], QImage.Format_RGB888)
                 Pic = ConvertToQtFormat.scaled(640, 480, Qt.KeepAspectRatio)
-                #send out the new image as a signal to dashboard
+                # Send out the new image as a signal to dashboard
                 self.ImageUpdate.emit(Pic)
 
-    #stop the threads execution
+    # Stop the thread's execution
     def stop(self):
         self.ThreadActive = False
         self.quit()
 
+# Define options form page
 class OptionsForm(QDialog):
     def __init__(self):
+        # Define stylesheet and defaults
         super().__init__()
         StyleSheet = '''
         QCheckBox {
@@ -513,24 +600,28 @@ class OptionsForm(QDialog):
         label_logo.setStyleSheet("color: white;")
         layout.addWidget(label_logo, 0, 0)
 
-        self.textlbl = QLabel(self)
-        self.textlbl.move(400,410)
-        self.textlbl.setText("Objects to Label:")
-        self.textlbl.setStyleSheet("color: white; font-size:24px;" )
-        self.textlbl.resize(200,20)
-
+        # Add back button
         button_back = QPushButton('Back')
         button_back.setStyleSheet("color: black;")
         button_back.setStyleSheet('background-color: white;')
         button_back.clicked.connect(self.back)
         layout.addWidget(button_back, 1, 0)
 
+        # Enable overlay checkbox
         self.enable_box = QCheckBox("Enable Overlay",self)
         self.enable_box.setChecked(True)
         self.enable_box.move(20,410)
         self.enable_box.resize(320,40)
         self.enable_box.stateChanged.connect(self.statechanged)
 
+        # Add objects to label section
+        self.textlbl = QLabel(self)
+        self.textlbl.move(400,410)
+        self.textlbl.setText("Objects to Label:")
+        self.textlbl.setStyleSheet("color: white; font-size:24px;" )
+        self.textlbl.adjustSize()
+
+        # People checkbox for objects to label
         self.People = QCheckBox("People",self)
         self.People.setChecked(True)
         self.People.move(400,450)
@@ -538,6 +629,7 @@ class OptionsForm(QDialog):
         self.People.setStyleSheet(StyleSheet)
         self.People.stateChanged.connect(self.statechanged1)
 
+        # People checkbox for objects to label
         self.Bikes = QCheckBox("Bikes",self)
         self.Bikes.setChecked(True)
         self.Bikes.move(400,490)
@@ -568,19 +660,51 @@ class OptionsForm(QDialog):
         self.enable_box.setStyleSheet(StyleSheet)
         self.run_model_box.setStyleSheet(StyleSheet)
 
+        self.textlbl1 = QLabel(self)
+        self.textlbl1.move(600,410)
+        self.textlbl1.setText("Objects to Log:")
+        self.textlbl1.setStyleSheet("color: white; font-size:24px;" )
+        self.textlbl1.adjustSize()
 
+        self.People1 = QCheckBox("People",self)
+        self.People1.setChecked(True)
+        self.People1.move(600,450)
+        self.People1.resize(320,40)
+        self.People1.setStyleSheet(StyleSheet)
+        self.People1.stateChanged.connect(self.statechanged2)
+
+        self.Bikes1 = QCheckBox("Bikes",self)
+        self.Bikes1.setChecked(True)
+        self.Bikes1.move(600,490)
+        self.Bikes1.resize(320,40)
+        self.Bikes1.setStyleSheet(StyleSheet)
+        self.Bikes1.stateChanged.connect(self.statechanged2)
+
+        self.AngleGrinders1 = QCheckBox("Angle Grinders",self)
+        self.AngleGrinders1.setChecked(True)
+        self.AngleGrinders1.move(600,530)
+        self.AngleGrinders1.resize(320,40)
+        self.AngleGrinders1.setStyleSheet(StyleSheet)
+        self.AngleGrinders1.stateChanged.connect(self.statechanged2)
+
+        self.BoltCutters1 = QCheckBox("Bolt Cutters",self)
+        self.BoltCutters1.setChecked(True)
+        self.BoltCutters1.move(600,570)
+        self.BoltCutters1.resize(320,40)
+        self.BoltCutters1.setStyleSheet(StyleSheet)
+        self.BoltCutters1.stateChanged.connect(self.statechanged2)
 
     def statechanged(self, int):
         global enableFlag
         global runModel
 
-        #if box is checked bounding boxes enabled
+        # If box is checked bounding boxes enabled
         if self.enable_box.isChecked():
             enableFlag = True
         else :
             enableFlag = False
 
-        #if box is checked model is enabled
+        # If box is checked model is enabled
         if self.run_model_box.isChecked():
             runModel = True
         else :
@@ -589,62 +713,89 @@ class OptionsForm(QDialog):
     def statechanged1(self, int):
         global labelFlags
 
-        #if people box is checked label is enabled
+        # If people box is checked label is enabled
         if self.People.isChecked():
             labelFlags['Person'] = True
         else :
             labelFlags['Person'] = False
 
-        #if bike box is checked label is enabled
+        # If bike box is checked label is enabled
         if self.Bikes.isChecked():
             labelFlags['Bike'] = True
         else :
             labelFlags['Bike'] = False
 
-        #if angle grinder box is checked label is enabled
+        # If angle grinder box is checked label is enabled
         if self.AngleGrinders.isChecked():
             labelFlags['Angle Grinder'] = True
         else :
             labelFlags['Angle Grinder'] = False
 
-        #if bolt cutter box is checked label is enabled
+        # If bolt cutter box is checked label is enabled
         if self.BoltCutters.isChecked():
             labelFlags['Bolt Cutters'] = True
         else :
             labelFlags['Bolt Cutters'] = False
 
+    def statechanged2(self, int):
+        global logFlags
 
+        # If people box is checked label is enabled
+        if self.People1.isChecked():
+            logFlags['Person'] = True
+        else :
+            logFlags['Person'] = False
+
+        # If bike box is checked label is enabled
+        if self.Bikes1.isChecked():
+            logFlags['Bike'] = True
+        else :
+            logFlags['Bike'] = False
+
+        # If angle grinder box is checked label is enabled
+        if self.AngleGrinders1.isChecked():
+            logFlags['Angle Grinder'] = True
+        else :
+            logFlags['Angle Grinder'] = False
+
+        # If bolt cutter box is checked label is enabled
+        if self.BoltCutters1.isChecked():
+            logFlags['Bolt Cutters'] = True
+        else :
+            logFlags['Bolt Cutters'] = False
 
     def back(self):
-        #set stack index to 3 which is where the dashboard page is located
+        # Set stack index to 3 for dashboard page
         widget.setCurrentIndex(widget.currentIndex() - 1)
 
+# Main
 if __name__ == '__main__':
     app = QApplication(sys.argv)
-    #create welcome screen page
+    # Create welcome screen page
     form = WelcomeScreen()
-    #declare stack of widgets
+    # Declare stack of widgets
     widget = QStackedWidget()
-    #add welcome page to stack at index 0
+    # Add welcome page to stack at index 0
     widget.addWidget(form)
-    #create login page
+    # Create login page
     login = LoginForm()
-    #add login page to stack at index 1
+    # Add login page to stack at index 1
     widget.addWidget(login)
-    #create register page
+    # Create register page
     create = CreateAccount()
-    #add register page to stack at index 2
+    # Add register page to stack at index 2
     widget.addWidget(create)
-    #create dashboard page
+    # Create dashboard page
     dashboard = ShowDashboard()
-    #add dashboard page to stack at index 3
+    # Add dashboard page to stack at index 3
     widget.addWidget(dashboard)
-    #create options page
+    # Create options page
     options = OptionsForm()
-    #add options page to stack at index 4
+    # Add options page to stack at index 4
     widget.addWidget(options)
+    # Set fixed height and width of application window
     widget.setFixedHeight(800)
     widget.setFixedWidth(1200)
-    #display widget at bottom of stack (welcome page)
+    # Display widget at bottom of stack (welcome page)
     widget.show()
     sys.exit(app.exec_())
