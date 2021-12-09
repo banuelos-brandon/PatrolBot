@@ -629,14 +629,15 @@ class OptionsForm(QDialog):
         self.People.setStyleSheet(StyleSheet)
         self.People.stateChanged.connect(self.statechanged1)
 
-        # People checkbox for objects to label
+        # Bikes checkbox for objects to label
         self.Bikes = QCheckBox("Bikes",self)
         self.Bikes.setChecked(True)
         self.Bikes.move(400,490)
         self.Bikes.resize(320,40)
         self.Bikes.setStyleSheet(StyleSheet)
         self.Bikes.stateChanged.connect(self.statechanged1)
-
+        
+        # Angle Grinder checkbox for objects to label
         self.AngleGrinders = QCheckBox("Angle Grinders",self)
         self.AngleGrinders.setChecked(True)
         self.AngleGrinders.move(400,530)
@@ -644,13 +645,15 @@ class OptionsForm(QDialog):
         self.AngleGrinders.setStyleSheet(StyleSheet)
         self.AngleGrinders.stateChanged.connect(self.statechanged1)
 
+        # Bolt Cutters checkbox for objects to label
         self.BoltCutters = QCheckBox("Bolt Cutters",self)
         self.BoltCutters.setChecked(True)
         self.BoltCutters.move(400,570)
         self.BoltCutters.resize(320,40)
         self.BoltCutters.setStyleSheet(StyleSheet)
         self.BoltCutters.stateChanged.connect(self.statechanged1)
-
+        
+        # Check box for turning model on and off
         self.run_model_box = QCheckBox("Run Object Detection",self)
         self.run_model_box.setChecked(True)
         self.run_model_box.move(20,450)
@@ -665,7 +668,8 @@ class OptionsForm(QDialog):
         self.textlbl1.setText("Objects to Log:")
         self.textlbl1.setStyleSheet("color: white; font-size:24px;" )
         self.textlbl1.adjustSize()
-
+        
+        # Checkbox to enable and disable logging when people detected
         self.People1 = QCheckBox("People",self)
         self.People1.setChecked(True)
         self.People1.move(600,450)
@@ -673,6 +677,7 @@ class OptionsForm(QDialog):
         self.People1.setStyleSheet(StyleSheet)
         self.People1.stateChanged.connect(self.statechanged2)
 
+        # Checkbox to enable and disable logging when bikes detected
         self.Bikes1 = QCheckBox("Bikes",self)
         self.Bikes1.setChecked(True)
         self.Bikes1.move(600,490)
@@ -680,6 +685,7 @@ class OptionsForm(QDialog):
         self.Bikes1.setStyleSheet(StyleSheet)
         self.Bikes1.stateChanged.connect(self.statechanged2)
 
+        # Checkbox to enable and disable logging when Angle Grinders detected
         self.AngleGrinders1 = QCheckBox("Angle Grinders",self)
         self.AngleGrinders1.setChecked(True)
         self.AngleGrinders1.move(600,530)
@@ -687,13 +693,15 @@ class OptionsForm(QDialog):
         self.AngleGrinders1.setStyleSheet(StyleSheet)
         self.AngleGrinders1.stateChanged.connect(self.statechanged2)
 
+        # Checkbox to enable and disable logging when Bolt Cutters detected
         self.BoltCutters1 = QCheckBox("Bolt Cutters",self)
         self.BoltCutters1.setChecked(True)
         self.BoltCutters1.move(600,570)
         self.BoltCutters1.resize(320,40)
         self.BoltCutters1.setStyleSheet(StyleSheet)
         self.BoltCutters1.stateChanged.connect(self.statechanged2)
-
+        
+    # Function to change Enable labels and Run Model flags when boxes are checked and unchecked
     def statechanged(self, int):
         global enableFlag
         global runModel
@@ -709,7 +717,8 @@ class OptionsForm(QDialog):
             runModel = True
         else :
             runModel = False
-
+    
+    # Function to change label flags when object boxes are checked and unchecked
     def statechanged1(self, int):
         global labelFlags
 
@@ -737,6 +746,7 @@ class OptionsForm(QDialog):
         else :
             labelFlags['Bolt Cutters'] = False
 
+    # Function to change log flags when boxes are checked and unchecked
     def statechanged2(self, int):
         global logFlags
 
@@ -763,7 +773,8 @@ class OptionsForm(QDialog):
             logFlags['Bolt Cutters'] = True
         else :
             logFlags['Bolt Cutters'] = False
-
+    
+    # Function to go back to dashboard when back button is pressed
     def back(self):
         # Set stack index to 3 for dashboard page
         widget.setCurrentIndex(widget.currentIndex() - 1)
