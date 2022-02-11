@@ -335,6 +335,8 @@ class ShowDashboard(QDialog):
         self.camera.ImageUpdate.connect(self.ImageUpdateSlot)
         # Call to update the log form
         self.camera.LogUpdate.connect(self.LogUpdateSlot)
+        # Call to update alert form
+        self.camera.AlertUpdate.connect(self.LogSecurityAlerts)
 
     # Define image updates
     def ImageUpdateSlot(self, Image):
@@ -344,10 +346,12 @@ class ShowDashboard(QDialog):
         self.feed_label.setPixmap(QPixmap.fromImage(Image))
 
     # Define log security alerts
-    def LogSecurityAlerts(self, alert='Found potential threat', conf_level=0.0):
+    def LogSecurityAlerts(self, alert):
         now = datetime.now()
         current_time = now.strftime("%H:%M:%S")
-        self.security_alerts.appendPlainText(current_time + ': ' + alert + '; Confidence Level: ' + str(conf_level))
+        reason = alert[0]
+        level = alert[1]
+        self.security_alerts.appendPlainText(current_time + ': ' + reason + ". Threat level: " + str(level) + "%")
 
     # Define text printed when camera updates log
     def LogUpdateSlot(self, label):
@@ -358,11 +362,12 @@ class ShowDashboard(QDialog):
         dt = datetime.today()
         # Get current seconds
         seconds = (dt.timestamp() % 10)
+        # currently removed to experiment with timing
         # Every 10 seconds append to log from
-        if (int(seconds) == 0):
-            if logFlags[label] == True:
-                msg = "\n" + current_time + ": " + label + " detected"
-                self.log_form.appendPlainText(msg)
+        # if (int(seconds) == 0):
+        if logFlags[label] == True:
+            msg = "\n" + current_time + ": " + label + " detected"
+            self.log_form.appendPlainText(msg)
 
     # Define save action log button functionality
     def save_action_log(self):
@@ -486,10 +491,18 @@ class CameraFeed(QThread):
     # Sends an updated QImage as a signal to the variable ImageUpdate
     ImageUpdate = pyqtSignal(QImage)
 
+    # Connect log update signal as string
     LogUpdate = pyqtSignal(str)
+
+    # Connect alert update signal as tuple for alert and level
+    AlertUpdate = pyqtSignal(tuple)
 
     def run(self):
         self.ThreadActive = True
+        # number of frames read is initially 0
+        self.frameCounter = 0
+        # keep a list of notable frames
+        self.notableFrames = []
         Capture = cv2.VideoCapture(0)
 
         global runModel
@@ -511,6 +524,8 @@ class CameraFeed(QThread):
         while self.ThreadActive:
             ret, frame = Capture.read()
             if ret:
+                
+                self.frameCounter += 1
 
                 image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
@@ -535,10 +550,14 @@ class CameraFeed(QThread):
 
                     # Apply the Torch YoloV5 model to this frame
                     results = model(image)
+                    
                     # Extract the labels and coordinates of the bounding boxes
                     labels, cords = results.xyxyn[0][:, -1].numpy(), results.xyxyn[0][:, :-1].numpy()
 
                     numberOfLabels = len(labels)
+                    
+                    # declare empty array of objects found
+                    objectsFound = []
 
                     for i in range(numberOfLabels):
                         row = cords[i]
@@ -546,12 +565,25 @@ class CameraFeed(QThread):
                         class_number = int(labels[i])
                         # Index colors list with current label number
                         color = COLORS[class_ids[class_number]]
+                        
+                        # if 50 frames pass since last interesting event
+                        # lower threat level
+                        if len(self.notableFrames) >= 1 and self.frameCounter - self.notableFrames[len(self.notableFrames)-1] == 50:
+                            self.AlertUpdate.emit(("Nothing notable", 0))
 
                         # If confidence level is greater than 0.2
                         if row[4] >= 0.2:
                             # Get label to send to dashbaord
                             label = classes[class_number]
                             x1, y1, x2, y2 = int(row[0]*x_shape), int(row[1]*y_shape), int(row[2]*x_shape), int(row[3]*y_shape)
+
+                            #if malicious item detected, notable frame is found
+                            if label == "Angle Grinder" or label == 'Bolt Cutters':
+                                self.AlertUpdate.emit((label + " detected", 25))
+                                self.notableFrames.append(self.frameCounter)
+                            
+                            # append coords and label so it can be analyzed
+                            objectsFound.append([x1, y1, x2, y2, label])
 
                             # If global enable flag is set true then show boxes
                             global enableFlag
@@ -562,8 +594,33 @@ class CameraFeed(QThread):
                                     cv2.rectangle(image, (int(x1),int(y1)), (int(x2),int(y2)), color, 2)
                                     # Give bounding box a text label
                                     cv2.putText(image, str(classes[int(labels[i])]), (int(x1)-10, int(y1)-10), cv2.FONT_HERSHEY_SIMPLEX, 2, color, 2)
-                            self.LogUpdate.emit(label)
+                            # experimental prediction limiter
+                            # only emit predictions every 5 frames
+                            # this equates to about once per second
+                            if self.frameCounter % 5 == 0:
+                                self.LogUpdate.emit(label)
 
+                    # ensure there are enough objects
+                    if len(objectsFound) >= 2:
+                        # iterate over items found
+                        for index in range(len(objectsFound)): 
+                            # check if first object is malicious
+                            if objectsFound[index][4] == 'Angle Grinder' or objectsFound[index][4] == 'Bolt Cutters':
+                                    
+                                    # check if it is bike was detected in same frame
+                                    for index2 in range(len(objectsFound)):
+                                        if objectsFound[index2][4] == 'Bike':
+                                            x1, y1, x2, y2, label1 = objectsFound[index]
+                                            x3, y3, x4, y4, label2 = objectsFound[index2]
+                                            box1 = [x1, y1, x2, y2]
+                                            box2 = [x3, y3, x4, y4]
+                                            # if interection is greater than 50 percent
+                                            # send a threat alert
+                                            iou = self.iou(box1, box2)
+                                            if iou >= 0.05:
+                                                self.AlertUpdate.emit((label1 + " on " + label2, 50))
+                                                self.notableFrames.append(self.frameCounter)
+                        
                 # Convert the image to QImage format
                 ConvertToQtFormat = QImage(image.data, image.shape[1], image.shape[0], QImage.Format_RGB888)
                 Pic = ConvertToQtFormat.scaled(640, 480, Qt.KeepAspectRatio)
@@ -573,7 +630,28 @@ class CameraFeed(QThread):
     # Stop the thread's execution
     def stop(self):
         self.ThreadActive = False
+        self.frameCounter = 0
         self.quit()
+
+    # code from https://www.pyimagesearch.com/2016/11/07/intersection-over-union-iou-for-object-detection/
+    def iou(self, boxA, boxB):
+        # determine the (x, y)-coordinates of the intersection rectangle
+        xA = max(boxA[0], boxB[0])
+        yA = max(boxA[1], boxB[1])
+        xB = min(boxA[2], boxB[2])
+        yB = min(boxA[3], boxB[3])
+        # compute the area of intersection rectangle
+        interArea = max(0, xB - xA + 1) * max(0, yB - yA + 1)
+        # compute the area of both the prediction and ground-truth
+        # rectangles
+        boxAArea = (boxA[2] - boxA[0] + 1) * (boxA[3] - boxA[1] + 1)
+        boxBArea = (boxB[2] - boxB[0] + 1) * (boxB[3] - boxB[1] + 1)
+        # compute the intersection over union by taking the intersection
+        # area and dividing it by the sum of prediction + ground-truth
+        # areas - the interesection area
+        iou = interArea / float(boxAArea + boxBArea - interArea)
+        # return the intersection over union value
+        return iou
 
 # Define options form page
 class OptionsForm(QDialog):
