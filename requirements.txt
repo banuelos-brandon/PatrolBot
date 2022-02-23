@@ -11,6 +11,12 @@ PyQt5 ~= 5.15.6
 # opencv should not contain any GUI functionality,
 # PyQt5 is used for the GUI
 opencv-python-headless ~= 4.5.4.58
+torch == 1.6.0+cpu
+torchvision == 0.7.0+cpu
 
 # for manual controls
 pynput == 1.7.5
+
+# for action recognition
+mxnet >= 1.8.0
+gluoncv >= 0.10.4 
