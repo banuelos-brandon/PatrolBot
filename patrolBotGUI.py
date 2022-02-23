@@ -15,6 +15,18 @@ from PyQt5.QtGui import *
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
 
+# import items for MxNet and GluonCv
+import matplotlib.pyplot as plt
+import numpy as np
+import mxnet as mx
+from mxnet import gluon, nd, image
+from mxnet.gluon.data.vision import transforms
+from gluoncv.data.transforms import video
+from gluoncv import utils
+from gluoncv.model_zoo import get_model
+
+from gluoncv.utils.filesystem import try_import_decord
+
 # PyQt5.WebEngine is unsupported on ARM, handle exception for that case
 try:
     from PyQt5.QtWebEngineWidgets import QWebEngineView, QWebEngineSettings
@@ -505,6 +517,22 @@ class CameraFeed(QThread):
         self.notableFrames = []
         Capture = cv2.VideoCapture(0)
 
+        # number of action frames read is initially 0
+        self.actionFrames = 0
+
+        # get frame resolution
+        frame_width = int(Capture.get(3))
+        frame_height = int(Capture.get(4))
+   
+        # create resolution tuple
+        size = (frame_width, frame_height)
+
+        videoPath = os.path.join(os.getcwd(), 'output.mp4')
+        # create a video writer object
+        videoFeed = cv2.VideoWriter(videoPath, 
+                         cv2.VideoWriter_fourcc(*'mp4v'),
+                         10, size)
+
         global runModel
         modelLoaded = False
 
@@ -513,12 +541,22 @@ class CameraFeed(QThread):
             # Torch implementation. Replace third item with your YoloV5 weight's exact path
             model_weight_path = os.path.join(os.getcwd(), 'model_weights/best.pt')
             model = torch.hub.load('ultralytics/yolov5', 'custom', model_weight_path)
-            #model = torch.hub.load('ultralytics/yolov5', 'yolov5n')
+            
             # Extract the names of the classes for trained the YoloV5 model
-
             classes = model.names
             class_ids = [0,1,2,3]
             COLORS = np.random.uniform(0, 255, size=(len(classes), 3))
+
+            # code from https://cv.gluon.ai/build/examples_action_recognition/demo_slowfast_kinetics400.html
+            # Load trained Slow Fast Model
+            model_name = 'slowfast_4x16_resnet50_kinetics400'
+            net = get_model(model_name, nclass=400, pretrained=True)
+            print('%s model is successfully loaded.' % model_name) 
+
+            # make a list of all potentially dangerous actions to detect
+            dangerousActions = ['crying','drop_kicking','headbutting','punching_bag',
+            'punching_person_-boxing-', 'wrestling']      
+            
             modelLoaded = True
 
         while self.ThreadActive:
@@ -526,6 +564,7 @@ class CameraFeed(QThread):
             if ret:
                 
                 self.frameCounter += 1
+                self.actionFrames += 1
 
                 image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
@@ -533,13 +572,80 @@ class CameraFeed(QThread):
                 image = cv2.flip(image, 1)
 
                 # If the model is turned on but the object never initialized,
-                #  stop the camera feed to prevent crashing
+                # stop the camera feed to prevent crashing
                 if(runModel == True and modelLoaded == False):
+                    # stop video stream
+                    video.release()
                     self.stop()
 
                 # If model is turned on and the object is initialized
-                #  run object detection on each frame
+                # run object detection on each frame
                 if(runModel == True and modelLoaded == True):
+
+                    # check if mp4 file exists
+                    if (self.actionFrames >= 80):
+                        
+                        # save previous video so it can be processed
+                        videoFeed.release()
+                        
+                        # put the path of the video here
+                        video_fname = videoPath
+                        decord = try_import_decord()
+                        vr = decord.VideoReader(video_fname)
+                    
+                        # check if length is long enough to be put into model
+                        if len(vr) > 70:
+                            videoStart = len(vr)-64
+                            videoEnd = len(vr)
+                            fast_frame_id_list = range(videoStart, videoEnd, 2)
+                            slow_frame_id_list = range(videoStart, videoEnd, 16)
+                            frame_id_list = list(fast_frame_id_list) + list(slow_frame_id_list)
+                            video_data = vr.get_batch(frame_id_list).asnumpy()
+                            clip_input = [video_data[vid, :, :, :] for vid, _ in enumerate(frame_id_list)]
+
+                            transform_fn = video.VideoGroupValTransform(size=224, mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+                            clip_input = transform_fn(clip_input)
+                            clip_input = np.stack(clip_input, axis=0)
+                            clip_input = clip_input.reshape((-1,) + (36, 3, 224, 224))
+                            clip_input = np.transpose(clip_input, (0, 2, 1, 3, 4))
+                            print('Video data is downloaded and preprocessed.')
+
+                            pred = net(nd.array(clip_input))
+
+                            kineticsClasses = net.classes
+                            topK = 5
+                            ind = nd.topk(pred, k=topK)[0].astype('int')
+                            print('The input video clip is classified to be')
+                            predictions = []
+
+                            for i in range(topK):
+                                predictions.append([kineticsClasses[ind[i].asscalar()],nd.softmax(pred)[0][ind[i]].asscalar()])
+
+                            # extract the action with the highest confidence level
+                            bestPrediction=(predictions[0])
+                            bestAction = bestPrediction[0]
+                            bestConfidence = bestPrediction[1]
+
+                            # print out best action for stats
+                            print(bestAction, " with confidence ", bestConfidence)
+
+                            # if a dangerous action is detected
+                            if bestAction in dangerousActions and bestConfidence >= .5:
+                                # send the alert to the alerts page
+                                self.AlertUpdate.emit((bestAction + " detected", 25))
+                                self.notableFrames.append(self.frameCounter)
+
+                            # reset frame count so it records again
+                            self.actionFrames = 0
+
+                            # create a video writer object again to start rerecording
+                            videoFeed = cv2.VideoWriter(videoPath, 
+                                            cv2.VideoWriter_fourcc(*'mp4v'),
+                                            10, size)
+
+                    # write current frame to video stream
+                    videoFeed.write(image)
+
                     ################################################################
                     #TORCH OBJECT DETECTION
                     ################################################################
@@ -568,11 +674,13 @@ class CameraFeed(QThread):
                         
                         # if 50 frames pass since last interesting event
                         # lower threat level
-                        if len(self.notableFrames) >= 1 and self.frameCounter - self.notableFrames[len(self.notableFrames)-1] == 50:
+                        if len(self.notableFrames) >= 1 and self.frameCounter - self.notableFrames[len(self.notableFrames)-1] >= 50:
                             self.AlertUpdate.emit(("Nothing notable", 0))
+                            # append current frame to node counter so it waits another 50
+                            self.notableFrames.append(self.frameCounter)
 
                         # If confidence level is greater than 0.2
-                        if row[4] >= 0.2:
+                        if row[4] >= 0.4:
                             # Get label to send to dashbaord
                             label = classes[class_number]
                             x1, y1, x2, y2 = int(row[0]*x_shape), int(row[1]*y_shape), int(row[2]*x_shape), int(row[3]*y_shape)
